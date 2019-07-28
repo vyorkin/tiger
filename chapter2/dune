@@ -1,5 +1,5 @@
 (library
- (name chapter1)
+ (name chapter2)
  (libraries base stdio))
 
 (env (dev (flags (:standard -warn-error -A))))

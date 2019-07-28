@@ -13,7 +13,10 @@ type stm = Compound of stm * stm
          | Op of exp * binop * exp
          | Eseq of stm * exp
 
-(* a := 5 * 3; b := (print(a, a - 1), a * 10); print(b) *)
+(* a := 5 + 3;
+   b := (print(a, a - 1), a * 10);
+   print(b)
+*)
 
 let prog =
   Compound(
