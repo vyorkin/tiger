@@ -1,5 +1,9 @@
-(library
- (name chapter2)
- (libraries base stdio))
+(ocamllex
+ (modules lexer))
+
+(executable
+ (name driver)
+ (libraries core stdio)
+ (preprocess (pps ppx_deriving.show)))
 
 (env (dev (flags (:standard -warn-error -A))))

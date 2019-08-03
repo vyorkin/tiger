@@ -12,6 +12,7 @@ utop:
 	dune utop --
 
 clean:
+# Remove files produced by dune.
 	dune clean
 # Optionally, remove all files/folders ignored by git as defined
 # in .gitignore (-X).

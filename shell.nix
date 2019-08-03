@@ -13,6 +13,7 @@ let
     ppx_import
     ppx_deriving
     ppx_sexp_conv
+    menhir
     stdio
     core
     core_extended
