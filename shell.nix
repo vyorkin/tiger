@@ -29,7 +29,6 @@ let
     cohttp
     # async_graphics
     cryptokit
-    menhir
   ]);
   mkpath = p: "${p}/lib/ocaml/${ocamlVersion}/site-lib";
   paths = builtins.concatStringsSep ":" (map mkpath packages);
