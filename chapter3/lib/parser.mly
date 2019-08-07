@@ -4,7 +4,6 @@
 %token FUNCTION "function"
 %token BREAK    "break"
 %token OF       "of"
-%token LENGTH   "^"
 %token END      "end"
 %token IN       "in"
 %token NIL      "nil" (* nil denotes a value belonging to every record type *)
@@ -157,7 +156,7 @@ let var_dec :=
 
 (* Record and array creation *)
 let create_rec := "id"; braced(init_rec_fields)
-let create_arr := "id"; "^"; bracketed(expr); "of"; expr
+let create_arr := "id"; bracketed(expr); "of"; expr
 
 let init_rec_fields := separated_list(",", init_rec_field); { () }
 let init_rec_field  := "id"; "="; expr
@@ -173,17 +172,15 @@ let fun_head   := "function"; "id"; fun_params
 let fun_body   := expr_seq
 let fun_params := parenthesized(ty_fields)
 
-(* l-values *)
-(* An l-value is a location whose value may be read or assigned.
-   Those are: variables, procedure parameters,
-   field of records and elements of arrays  *)
 let lvalue :=
-  | "id"; { () }     (* variable or parameter *)
-  | lvalue_rec_field (* record field *)
-  | lvalue_arr_elem  (* array element *)
+  | "id"; { () }
+  | lvalue_t
 
-let lvalue_rec_field := lvalue; "."; "id"; { () }
-let lvalue_arr_elem  := lvalue; bracketed(expr)
+let lvalue_t :=
+  | "id"; "."; "id"; { () }
+  | lvalue_t; "."; "id"; { () }
+  | "id"; bracketed(expr)
+  | lvalue_t; bracketed(expr)
 
 (* Assignment of the expression to lvalue *)
 let assignment := lvalue; ":="; expr
