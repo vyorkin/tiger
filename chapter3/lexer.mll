@@ -1,7 +1,7 @@
 {
 open Lexing
-open Syntax
 open Base
+open Parser
 
 exception SyntaxError of string
 }
@@ -14,10 +14,11 @@ let int = digit+
 let frac = '.' digit*
 let exp = ['e' 'E'] ['-' '+']? int
 let float = digit* frac? exp?
+
 let white = [' ' '\t']+
 let newline = '\r' | '\n' | "\r\n"
 let alphanum = ['a'-'z' 'A'-'Z' '0'-'9' '_']
-let id = ['a'-'z'] alphanum*
+let id = ['a'-'z' 'A'-'Z'] alphanum*
 
 (* Lexing rules *)
 
