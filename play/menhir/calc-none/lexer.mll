@@ -17,8 +17,8 @@ and token = parse
     { token lexbuf }
   | '\n'
     { EOL }
-  | ['0'-'9']+
-    { INT }
+  | ['0'-'9']+ as i
+    { INT (int_of_string i) }
   | '+'
     { PLUS }
   | '-'

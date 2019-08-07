@@ -1,10 +1,10 @@
-%token INT    "int"
-%token PLUS   "+"
-%token MINUS  "-"
-%token TIMES  "*"
-%token DIV    "/"
-%token LPAREN "("
-%token RPAREN ")"
+%token <int> INT "int"
+%token PLUS      "+"
+%token MINUS     "-"
+%token TIMES     "*"
+%token DIV       "/"
+%token LPAREN    "("
+%token RPAREN    ")"
 %token EOL
 
 %start <unit> main
