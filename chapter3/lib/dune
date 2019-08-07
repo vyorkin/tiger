@@ -5,8 +5,10 @@
 (ocamllex
  (modules lexer))
 
-(executable
- (name driver)
- (libraries core stdio))
+(library
+ (name ch3)
+ (inline_tests)
+ (libraries core stdio)
+ (preprocess (pps ppx_inline_test ppx_expect)))
 
 (env (dev (flags (:standard -warn-error -A))))

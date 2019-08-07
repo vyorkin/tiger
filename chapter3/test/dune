@@ -1,0 +1,7 @@
+(executable
+ (name testsuite)
+ (libraries base core ch3 oUnit))
+
+(alias
+ (name runtest)
+ (action (run ./testsuite.exe)))

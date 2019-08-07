@@ -41,6 +41,7 @@ rule read = parse
   | "function" { FUNCTION }
   | "break"    { BREAK }
   | "of"       { OF }
+  | "^"        { LENGTH }
   | "end"      { END }
   | "in"       { IN }
   | "nil"      { NIL }

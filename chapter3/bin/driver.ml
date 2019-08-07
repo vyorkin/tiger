@@ -1,6 +1,7 @@
 open Core
-open Lexer
 open Lexing
+open Ch3
+open Ch3.Lexer
 
 let print_position outx lexbuf =
   let pos = lexbuf.lex_curr_p in
@@ -22,11 +23,11 @@ let parse filename ch =
   };
   parse_with_error lexbuf
 
-let run filename () =
+let run_parser filename () =
   In_channel.with_file filename ~f:(parse filename)
 
 let () =
   let spec = Command.Spec.(empty +> anon ("filename" %: file)) in
-  run
+  run_parser
   |> Command.basic_spec ~summary:"Run the parser" spec
   |> Command.run

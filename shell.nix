@@ -13,6 +13,8 @@ let
     ppx_import
     ppx_deriving
     ppx_sexp_conv
+    ppx_inline_test
+    ppx_expect
     menhir
     stdio
     core
@@ -21,6 +23,7 @@ let
     findlib
     utop
     merlin
+    ounit
     ocp-indent
     ocp-index
 

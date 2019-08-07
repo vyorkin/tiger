@@ -4,10 +4,10 @@
 %token FUNCTION "function"
 %token BREAK    "break"
 %token OF       "of"
+%token LENGTH   "^"
 %token END      "end"
 %token IN       "in"
-(* nil denotes a value belonging to every record type *)
-%token NIL      "nil"
+%token NIL      "nil" (* nil denotes a value belonging to every record type *)
 %token LET      "let"
 %token ARRAY    "array"
 
@@ -64,17 +64,16 @@
 %token EOF
 
 (* Associativity of operators *)
-%right    "of"
-%nonassoc "do" "then"
+%nonassoc "of"
+%nonassoc "then"
 %nonassoc "else"
+%nonassoc "do"
 %nonassoc ":="
-%nonassoc "|"
-%nonassoc "&"
+%left     "|"
+%left     "&"
 %nonassoc ">=" ">" "<=" "<" "<>" "="
 %left     "+" "-"
 %left     "*" "/"
-(* Unary minus has the highest precedence *)
-%nonassoc UMINUS
 
 %start <unit> main
 
@@ -88,12 +87,15 @@ let expr :=
   | primitive
   | "nil"
   | "break"
+  | create_rec
+  | create_arr
   | lvalue
   | assignment
   | local
   | conditional
   | loop
   | fun_call
+  | unary
   | binary
   (* Note that: no_val := "(" ")" *)
   | parenthesized(expr_seq)
@@ -102,6 +104,10 @@ let expr :=
 let primitive :=
   | "string"; { () }
   | "int"; { () }
+
+(* Unary operator *)
+let unary :=
+  "-"; expr
 
 (* Binary operator *)
 let binary :=
@@ -120,7 +126,7 @@ let conditional :=
   | "if"; expr; "then"; expr; "else"; expr
   | "if"; expr; "then"; expr
 
-(* Local variables *)
+(* Local bindings *)
 let local := "let"; decs; "in"; expr_seq; "end"
 
 (* A declaration-sequence is a sequence of type, value, and function declarations;
@@ -141,21 +147,17 @@ let ty :=
   | "array"; "of"; "id"; { () } (* arrays *)
   | "id"; { () }
 
-let ty_fields := separated_nonempty_list(",", ty_field); { () }
+let ty_fields := separated_list(",", ty_field); { () }
 let ty_field  := "id"; ty_ann
 
 (* Variables *)
 let var_dec :=
-  | "var"; "id";         ":="; var_init
-  | "var"; "id"; ty_ann; ":="; var_init
-
-let var_init :=
-  | create_rec
-  | create_arr
+  | "var"; "id";         ":="; expr
+  | "var"; "id"; ty_ann; ":="; expr
 
 (* Record and array creation *)
 let create_rec := "id"; braced(init_rec_fields)
-let create_arr := "id"; bracketed(expr); "of"; expr
+let create_arr := "id"; "^"; bracketed(expr); "of"; expr
 
 let init_rec_fields := separated_list(",", init_rec_field); { () }
 let init_rec_field  := "id"; "="; expr
