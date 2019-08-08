@@ -1,0 +1,3 @@
+(executable
+ (name driver)
+ (libraries ch4 core stdio))

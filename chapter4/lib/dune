@@ -1,0 +1,14 @@
+(menhir
+ (modules parser)
+ (flags ("--dump" "--explain")))
+
+(ocamllex
+ (modules lexer))
+
+(library
+ (name ch4)
+ (inline_tests)
+ (libraries core stdio)
+ (preprocess (pps ppx_inline_test ppx_expect)))
+
+(env (dev (flags (:standard -warn-error -A))))
