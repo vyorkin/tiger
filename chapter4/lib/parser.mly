@@ -74,7 +74,11 @@
 %left     "+" "-"
 %left     "*" "/"
 
-%start <unit> main
+%start <Syntax.expr> main
+
+%{ open Syntax %}
+%{ module L = Location %}
+%{ module E = Error %}
 
 %%
 
@@ -84,132 +88,195 @@ let main :=
 (* Top-level expression *)
 let expr :=
   | primitive
-  | "nil"
-  | "break"
+  | nil
+  | break
   | create_rec
   | create_arr
-  | lvalue
+  | var
   | assignment
   | local
   | conditional
   | loop
-  | fun_call
+  | call
   | unary
   | binary
-  (* Note that: no_val := "(" ")" *)
-  | parenthesized(expr_seq)
+  | bool
+  | seq
+
+let nil :=
+  ~ = loc("nil"); <Nil>
+
+let break :=
+  ~ = loc("break"); <Break>
 
 (* Primitive type *)
 let primitive :=
-  | "string"; { () }
-  | "int"; { () }
+  | ~ = loc("string"); <String>
+  | ~ = loc("int"); <Int>
 
 (* Unary operator *)
 let unary :=
-  "-"; expr
+  m = loc("-"); e = loc(expr);
+  { Op(L.dummy(Int (L.dummy 0)), L.mk Minus (L.loc m), e) }
 
-(* Binary operator *)
+(* Binary expression *)
 let binary :=
-  | arith
-  | comparison
-  | boolean
+  ~ = loc(expr); ~ = loc(binary_op); ~ = loc(expr); <Op>
+
+let binary_op ==
+  | "+";  { Plus }
+  | "-";  { Minus }
+  | "*";  { Times }
+  | "/";  { Divide }
+  | ">="; { Ge }
+  | ">";  { Gt }
+  | "<="; { Le }
+  | "<";  { Lt }
+  | "=";  { Eq }
+  | "<>"; { Neq }
+
+(* Boolean expression *)
+let bool :=
+  | l = loc(expr); "&"; r = loc(expr);
+    { If(l, r, Some (L.dummy (Int (L.dummy 0)))) }
+  | l = loc(expr); "|"; r = loc(expr);
+    { If(l, L.dummy (Int (L.dummy 1)), Some r) }
 
 let loop :=
   | while_loop
   | for_loop
 
-let while_loop := "while"; expr; "do"; expr
-let for_loop   := "for"; "id"; ":="; expr; "to"; expr; "do"; expr
+let while_loop :=
+  "while"; cond = loc(expr); "do"; body = loc(expr);
+  { While(cond, body) }
+
+let for_loop :=
+  "for"; i = "id"; ":="; lo = loc(expr);
+  "to"; hi = loc(expr); "do"; body = loc(expr);
+  { For(S.symbol i, lo, hi, body, ref true) }
 
 let conditional :=
-  | "if"; expr; "then"; expr; "else"; expr
-  | "if"; expr; "then"; expr
+  | "if"; cond = loc(expr); "then"; t = loc(expr); "else"; f = loc(expr);
+    { If(cond, t, Some f) }
+  | "if"; cond = loc(expr); "then"; t = loc(expr);
+    { If(cond, t, None) }
 
-(* Local bindings *)
-let local := "let"; decs; "in"; expr_seq; "end"
+(* Local (let) bindings *)
+let local :=
+  "let"; decs = decs; "in"; es = expr_seq; "end";
+  { Let(decs, L.mk (Seq es) $loc(es)) }
 
 (* A declaration-sequence is a sequence of type, value, and function declarations;
    no punctuation separates or terminates individual declarations. *)
-let decs := list(dec); { () }
+let decs :=
+  ~ = list(dec); <>
 
+(* Declaration *)
 let dec :=
-  | ty_dec  (* type *)
-  | var_dec (* value *)
-  | fun_dec (* function declaration *)
+  | ~ = loc(ty_dec); <TypeDec> (* type *)
+  | ~ = loc(var_dec); <VarDec> (* value *)
+  | ~ = loc(fun_dec); <FunDec> (* function *)
 
-(* Data types *)
-let ty_dec := "type"; "id"; "="; ty
+(* Type declaration *)
+let ty_dec :=
+  "type"; type_name = symbol; "="; typ = ty;
+  { { type_name; typ } }
 
 (* Type *)
 let ty :=
-  | braced(ty_fields) (* records *)
-  | "array"; "of"; "id"; { () } (* arrays *)
-  | "id"; { () }
+  (* record *)
+  | ~ = delimited("{", ty_fields, "}"); <RecordTy>
+  (* array *)
+  | "array"; "of"; ~ = symbol; <ArrayTy>
+  (* alias *)
+  | ~ = symbol; <NameTy>
 
-let ty_fields := separated_list(",", ty_field); { () }
-let ty_field  := "id"; ty_ann
+let ty_fields :=
+  ~ = separated_list(",", ty_field); <>
+
+let ty_field :=
+  name = symbol; ":"; typ = symbol;
+  { { name; typ; escape = ref true } }
 
 (* Variables *)
 let var_dec :=
-  | "var"; "id";         ":="; expr
-  | "var"; "id"; ty_ann; ":="; expr
+  | "var"; var_name = symbol; ":="; init = loc(expr);
+    { { var_name; var_typ = None; init; escape = ref true } }
+  | "var"; var_name = symbol; ":"; vt = symbol; ":="; init = loc(expr);
+    { { var_name; var_typ = Some vt; init; escape = ref true } }
 
 (* Record and array creation *)
-let create_rec := "id"; braced(init_rec_fields)
-let create_arr := "id"; bracketed(expr); "of"; expr
+let create_rec :=
+  typ = symbol; fields = delimited("{", init_rec_fields, "}");
+  { Record(typ, fields) }
 
-let init_rec_fields := separated_list(",", init_rec_field); { () }
-let init_rec_field  := "id"; "="; expr
+let create_arr :=
+  typ = symbol; size = bracketed(expr); "of"; init = loc(expr);
+  { Array(typ, size, init) }
+
+let init_rec_fields :=
+  ~ = separated_list(",", init_rec_field); <>
+
+let init_rec_field :=
+  name = symbol; "="; e = loc(expr);
+  { (name, e) }
 
 (* functions *)
 let fun_dec :=
   (* procedures doesn't return values *)
-  | fun_head; "="; fun_body
+  | "function"; fun_name = symbol; params = fun_params;
+    "="; body = loc(expr);
+    { { fun_name; params; body; result_typ = None } }
   (* functions return values and the type is specified after the colon *)
-  | fun_head; ":"; "id"; "="; fun_body
+  | "function"; fun_name = symbol; params = fun_params;
+    ":"; rt = symbol; "="; body = loc(expr);
+    { { fun_name; params; body; result_typ = Some rt } }
 
-let fun_head   := "function"; "id"; fun_params
-let fun_body   := expr_seq
-let fun_params := parenthesized(ty_fields)
+let fun_params :=
+  ~ = delimited("(", ty_fields, ")"); <>
+
+let var :=
+  ~ = loc(lvalue); <Var>
 
 let lvalue :=
-  | "id"; { () }
-  | lvalue_t
+  | ~ = symbol; <SimpleVar>
+  | lvalue_complex
 
-let lvalue_t :=
-  | "id"; "."; "id"; { () }
-  | lvalue_t; "."; "id"; { () }
-  | "id"; bracketed(expr)
-  | lvalue_t; bracketed(expr)
+let lvalue_complex :=
+  | v = symbol; "."; f = symbol;
+    { FieldVar(L.mk (SimpleVar v) (L.loc v), f) }
+  | ~ = loc(lvalue_complex); "."; ~ = symbol;
+    <FieldVar>
+  | s = symbol; e = bracketed(expr);
+    { SubscriptVar(L.mk (SimpleVar s) (L.loc s), e) }
+  | ~ = loc(lvalue_complex); ~ = bracketed(expr);
+    <SubscriptVar>
+
+let symbol :=
+  x = loc("id"); { L.mk (S.symbol (L.value x)) (L.loc x) }
 
 (* Assignment of the expression to lvalue *)
-let assignment := lvalue; ":="; expr
+let assignment :=
+  ~ = loc(lvalue); ":="; ~ = loc(expr); <Assign>
 
 (* Sequence of expressions delimited by semicolon *)
-let expr_seq := separated_list(";", expr); { () }
+let expr_seq :=
+  ~ = separated_list(";", loc(expr)); <>
+
+let seq :=
+  ~ = delimited("(", expr_seq, ")"); <Seq>
 
 (* Function call *)
-let fun_call := "id"; parenthesized(fun_args)
+let call :=
+  ~ = symbol; ~ = delimited("(", fun_args, ")"); <Call>
 
 (* Function arguments *)
-let fun_args := separated_list(",", expr); { () }
-
-(* Arithmetic expression *)
-let arith := expr; arith_op; expr
-let arith_op == "+" | "-" | "*" | "/"
-
-(* Comparison expression *)
-let comparison := expr; comparison_op; expr
-let comparison_op == ">=" | ">" | "<=" | "<" | "<>" | "="
-
-(* Boolean expression *)
-let boolean := expr; boolean_op; expr
-let boolean_op == "&" | "|"
-
-(* Type annotation *)
-let ty_ann := ":"; "id"
+let fun_args :=
+  ~ = separated_list(",", loc(expr)); <>
 
 (* Helper functions *)
-let parenthesized(x) == delimited("(", x, ")")
-let bracketed(x)     == delimited("[", x, "]")
-let braced(x)        == delimited("{", x, "}")
+let loc(t) ==
+  ~ = t; { L.mk t $loc }
+
+let bracketed(x) ==
+  loc(delimited("[", x, "]"))

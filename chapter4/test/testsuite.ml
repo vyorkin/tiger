@@ -42,7 +42,7 @@ let position lexbuf =
 
 let parse_with_error lexbuf =
   try
-    Parser.main Lexer.read lexbuf;
+    Parser.main Lexer.read lexbuf |> ignore;
     assert_bool "Ok" true
   with
   | SyntaxError msg ->

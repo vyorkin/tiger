@@ -97,7 +97,7 @@ let expr :=
   | unary
   | binary
   (* Note that: no_val := "(" ")" *)
-  | parenthesized(expr_seq)
+  | seq
 
 (* Primitive type *)
 let primitive :=
@@ -168,7 +168,7 @@ let fun_dec :=
   | fun_head; ":"; "id"; "="; fun_body
 
 let fun_head   := "function"; "id"; fun_params
-let fun_body   := expr_seq
+let fun_body   := expr
 let fun_params := parenthesized(ty_fields)
 
 let lvalue :=
@@ -186,6 +186,8 @@ let assignment := lvalue; ":="; expr
 
 (* Sequence of expressions delimited by semicolon *)
 let expr_seq := separated_list(";", expr); { () }
+
+let seq := parenthesized(expr_seq)
 
 (* Function call *)
 let fun_call := "id"; parenthesized(fun_args)

@@ -2,6 +2,7 @@ open Core
 open Lexing
 open Ch4
 open Ch4.Lexer
+open Ch4.Syntax
 
 let print_position outx lexbuf =
   let pos = lexbuf.lex_curr_p in
@@ -9,7 +10,9 @@ let print_position outx lexbuf =
   fprintf outx "%s:%d:%d" pos.pos_fname pos.pos_lnum col
 
 let parse_with_error lexbuf =
-  try Parser.main Lexer.read lexbuf; print_endline "sucess!" with
+  try
+    Printf.printf "%s\n" (show_expr (Parser.main Lexer.read lexbuf))
+  with
   | SyntaxError msg ->
     fprintf stderr "%a: %s\n" print_position lexbuf msg |> ignore
   | Parser.Error ->
