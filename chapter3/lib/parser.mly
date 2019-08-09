@@ -110,8 +110,7 @@ let unary :=
 
 (* Binary operator *)
 let binary :=
-  | arith
-  | comparison
+  | bin
   | boolean
 
 let loop :=
@@ -194,13 +193,9 @@ let fun_call := "id"; parenthesized(fun_args)
 (* Function arguments *)
 let fun_args := separated_list(",", expr); { () }
 
-(* Arithmetic expression *)
-let arith := expr; arith_op; expr
-let arith_op == "+" | "-" | "*" | "/"
-
 (* Comparison expression *)
-let comparison := expr; comparison_op; expr
-let comparison_op == ">=" | ">" | "<=" | "<" | "<>" | "="
+let bin := expr; bin_op; expr
+let bin_op == "+" | "-" | "*" | "/" | ">=" | ">" | "<=" | "<" | "<>" | "="
 
 (* Boolean expression *)
 let boolean := expr; boolean_op; expr
