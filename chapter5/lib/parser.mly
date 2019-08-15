@@ -84,7 +84,7 @@
 
 let main :=
   | ~ = expr; EOF; <>
-  | err = loc(error); { E.fail E.SyntaxError err "" }
+  | err = loc(error); { E.syntax_error err "" }
 
 (* Top-level expression *)
 let expr :=
@@ -118,7 +118,7 @@ let primitive :=
 (* Unary operator *)
 let unary :=
   m = loc("-"); e = loc(expr);
-  { Op(L.dummy(Int (L.dummy 0)), L.mk Minus (L.loc m), e) }
+  { Op(L.dummy(Int (L.dummy 0)), L.mk Minus m.L.loc, e) }
 
 (* Binary expression *)
 let binary :=
@@ -245,16 +245,16 @@ let lvalue :=
 
 let lvalue_complex :=
   | v = symbol; "."; f = symbol;
-    { FieldVar(L.mk (SimpleVar v) (L.loc v), f) }
+    { FieldVar(L.mk (SimpleVar v) v.L.loc, f) }
   | ~ = loc(lvalue_complex); "."; ~ = symbol;
     <FieldVar>
   | s = symbol; e = bracketed(expr);
-    { SubscriptVar(L.mk (SimpleVar s) (L.loc s), e) }
+    { SubscriptVar(L.mk (SimpleVar s) s.L.loc, e) }
   | ~ = loc(lvalue_complex); ~ = bracketed(expr);
     <SubscriptVar>
 
 let symbol :=
-  x = loc("id"); { L.mk (S.symbol (L.value x)) (L.loc x) }
+  x = loc("id"); { L.mk (S.symbol x.L.value) x.L.loc }
 
 (* Assignment of the expression to lvalue *)
 let assignment :=

@@ -3,7 +3,7 @@ open Lexing
 open Base
 open Parser
 
-exception SyntaxError of string
+exception LexingError of string
 }
 
 (* Regular expressions *)
@@ -98,7 +98,7 @@ rule read = parse
   | id { ID (Lexing.lexeme lexbuf) }
 
   (* Other tokens *)
-  | _   { raise (SyntaxError ("Unexpected character: " ^ Lexing.lexeme lexbuf)) }
+  | _   { raise (LexingError ("Unexpected character: " ^ Lexing.lexeme lexbuf)) }
   | eof { EOF }
 
 (* The rule to match string literals *)
@@ -118,8 +118,8 @@ and read_string buf = parse
     { Buffer.add_string buf (Lexing.lexeme lexbuf);
       read_string buf lexbuf
     }
-  | _   { raise (SyntaxError ("Illegal string character: " ^ Lexing.lexeme lexbuf)) }
-  | eof { raise (SyntaxError "String is not terminated") }
+  | _   { raise (LexingError ("Illegal string character: " ^ Lexing.lexeme lexbuf)) }
+  | eof { raise (LexingError "String is not terminated") }
 
 (* The rule to match comments (including nested comments),
  * keeping a list of where comments open. *)
@@ -140,5 +140,5 @@ and read_comment opened = parse
    * point to the opening token that wasn't closed and raise an error. *)
   | eof
     { lexbuf.lex_curr_p <- List.hd_exn opened;
-      raise (SyntaxError "Unterminated comment")
+      raise (LexingError "Unterminated comment")
     }

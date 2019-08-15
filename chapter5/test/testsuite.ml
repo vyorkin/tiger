@@ -40,13 +40,16 @@ let position lexbuf =
 
 let parse_with_error lexbuf =
   try
-    Parser.main Lexer.read lexbuf |> ignore;
+    let expr = Parser.main Lexer.read lexbuf in
+    Semant.trans_prog expr;
     assert_bool "Ok" true
   with
-  | SyntaxError msg ->
+  | LexingError msg ->
     assert_failure (position lexbuf ^ " : " ^ msg)
   | Parser.Error ->
     assert_failure ("Syntax error: " ^ position lexbuf)
+  | Error.Error (err, loc, msg) ->
+    assert_failure (Error.to_string err loc msg)
 
 let parse filename ch =
   let lexbuf = Lexing.from_channel ch in

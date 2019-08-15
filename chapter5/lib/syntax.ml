@@ -39,7 +39,7 @@ type expr =
   | Op of expr L.t * (* left operand *)
           op L.t * (* operator *)
           expr L.t (* right operand *)
-  | Record of S.t L.t * (* name *)
+  | Record of S.t L.t * (* record type name *)
               (S.t L.t * expr L.t) list (* fields *)
   | Seq of expr L.t list
   | Assign of var L.t *
@@ -65,9 +65,16 @@ type expr =
 (* Variable *)
 and var =
   | SimpleVar of S.t L.t
-  | FieldVar of var L.t * S.t L.t
-  | SubscriptVar of var L.t * expr L.t
+  | FieldVar of
+      var L.t * (* var *)
+      S.t L.t (* field *)
+  | SubscriptVar of
+      var L.t * (* var *)
+      expr L.t (* subscript / index *)
   [@@deriving show]
+
+(* TODO: we should use lists of mutually recursive
+ * type and function declarations in [dec], see page 118 *)
 
 (* Type, value or function declaration *)
 and dec =

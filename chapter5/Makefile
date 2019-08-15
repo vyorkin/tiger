@@ -3,7 +3,7 @@
 default: exe
 
 exe:
-	dune exe bin/driver.exe -- ../book/testcases/queens.tig
+	dune exe bin/driver.exe -- ../book/testcases/test5.tig
 
 test:
 	dune runtest
