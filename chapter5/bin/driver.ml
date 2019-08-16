@@ -13,8 +13,8 @@ let print_position outx lexbuf =
 let parse_with_error lexbuf =
   try
     let expr = Parser.main Lexer.read lexbuf in
+    Printf.printf "%s\n" (show_expr expr);
     trans_prog expr;
-    Printf.printf "%s\n" (show_expr expr)
   with
   | LexingError msg ->
     fprintf stderr "%a: lexing error%s\n" print_position lexbuf msg |> ignore

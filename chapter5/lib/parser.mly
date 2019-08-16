@@ -63,7 +63,7 @@
 %token EOF
 
 (* Associativity of operators *)
-%right    "function" "type"
+%nonassoc "function"
 %nonassoc "of"
 %nonassoc "then"
 %nonassoc "else"
@@ -175,12 +175,15 @@ let decs :=
 
 (* Declaration *)
 let dec :=
+  | ~ = loc(var_dec); <VarDec> (* value *)
+  | ~ = dec_ty_fun; <> (* type or function *)
+
+let dec_ty_fun :=
   | ~ = nonempty_list(loc(ty_dec)); <TypeDec> (* type *)
   | ~ = nonempty_list(loc(fun_dec)); <FunDec> (* function *)
-  | ~ = loc(var_dec); <VarDec> (* value *)
 
 (* Type declaration *)
-let ty_dec ==
+let ty_dec :=
   "type"; type_name = symbol; "="; typ = ty;
   { { type_name; typ } }
 
@@ -201,7 +204,7 @@ let ty_field :=
   { { name; typ; escape = ref true } }
 
 (* Variables *)
-let var_dec :=
+let var_dec ==
   | "var"; var_name = symbol; ":="; init = loc(expr);
     { { var_name; var_typ = None; init; escape = ref true } }
   | "var"; var_name = symbol; ":"; vt = symbol; ":="; init = loc(expr);

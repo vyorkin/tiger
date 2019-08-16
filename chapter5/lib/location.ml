@@ -4,7 +4,7 @@ type loc = position * position
 
 type 'a t =
   { value: 'a;
-    loc: loc [@opaque];
+    loc: loc [@printer fun fmt _ -> fprintf fmt "<>"]
   } [@@deriving show]
 
 let mk value loc = { value; loc }

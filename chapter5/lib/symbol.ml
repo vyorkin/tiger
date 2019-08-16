@@ -16,6 +16,7 @@ let symbol =
       Hashtbl.add tbl name !idx;
       !idx, name
 
+let id = fst
 let name = snd
 
 module SymbolOrd = struct
