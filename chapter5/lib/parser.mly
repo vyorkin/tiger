@@ -63,6 +63,7 @@
 %token EOF
 
 (* Associativity of operators *)
+%right    "function" "type"
 %nonassoc "of"
 %nonassoc "then"
 %nonassoc "else"
@@ -174,12 +175,12 @@ let decs :=
 
 (* Declaration *)
 let dec :=
-  | ~ = loc(ty_dec); <TypeDec> (* type *)
+  | ~ = nonempty_list(loc(ty_dec)); <TypeDec> (* type *)
+  | ~ = nonempty_list(loc(fun_dec)); <FunDec> (* function *)
   | ~ = loc(var_dec); <VarDec> (* value *)
-  | ~ = loc(fun_dec); <FunDec> (* function *)
 
 (* Type declaration *)
-let ty_dec :=
+let ty_dec ==
   "type"; type_name = symbol; "="; typ = ty;
   { { type_name; typ } }
 
@@ -223,7 +224,7 @@ let init_rec_field :=
   { (name, e) }
 
 (* functions *)
-let fun_dec :=
+let fun_dec ==
   (* procedures doesn't return values *)
   | "function"; fun_name = symbol; params = fun_params;
     "="; body = loc(expr);

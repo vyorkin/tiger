@@ -73,14 +73,11 @@ and var =
       expr L.t (* subscript / index *)
   [@@deriving show]
 
-(* TODO: we should use lists of mutually recursive
- * type and function declarations in [dec], see page 118 *)
-
-(* Type, value or function declaration *)
+(* Type(s), value or function(s) declaration *)
 and dec =
-  | TypeDec of type_dec L.t
+  | TypeDec of type_dec L.t list
+  | FunDec of fun_dec L.t list
   | VarDec of var_dec L.t
-  | FunDec of fun_dec L.t
   [@@deriving show]
 
 (* Value declaration *)
