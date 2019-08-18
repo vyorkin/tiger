@@ -238,23 +238,55 @@ and trans_dec venv tenv dec =
 
 and trans_tys venv tenv tys =
   let open Syntax in
-  let add_tn (tns, tenv) ty_dec =
+  let tr_ty_head (tns, tenv) ty_dec =
     let sym = ty_dec.L.value.type_name.L.value in
     let tn = ref None in
+    (* add a type-reference, without body *)
     let tenv' = Table.add sym (T.Name (sym, tn)) tenv in
     tn :: tns, tenv' in
   (* first, we add all the type names to the [tenv] *)
-  let (tns, tenv') = List.fold_left add_tn ([], tenv) tys in
-  let resolve_tn tn ty_dec =
+  let (tns, tenv') = List.fold_left tr_ty_head ([], tenv) tys in
+  let resolve_ty tn ty_dec =
     let { typ; _ } = ty_dec.L.value in
+    (* resolve the type body *)
     let t = trans_ty tenv' typ in
     tn := Some t in
-  List.iter2 resolve_tn (List.rev tns) tys;
+  (* resolve the (possibly mutually recursive) types *)
+  List.iter2 resolve_ty (List.rev tns) tys;
   venv, tenv'
 
 and trans_funs venv tenv fs =
-  let tr = Base.Fn.flip trans_fun tenv in
-  let venv' = List.fold_left tr venv fs in
+  let open Syntax in
+  let open Env in
+  let tr_fun_head (sigs, venv) fun_dec =
+    let { fun_name; params; result_typ; _ } = fun_dec.L.value in
+    (* translate function arguments *)
+    let tr_arg f = f.name.L.value, Table.find_ty f.typ tenv in
+    let args = List.map tr_arg params in
+    let formals = List.map snd args in
+    (* translate the result type *)
+    let result = match result_typ with
+      | None -> T.Unit
+      | Some t -> Table.find_ty t tenv in
+    let name = fun_name.L.value in
+    let entry = FunEntry (formals, result) in
+    let venv' = Table.add name entry venv in
+    ((args, result) :: sigs, venv') in
+  (* first, we add all the function entries to the [venv] *)
+  let (sigs, venv') = List.fold_left tr_fun_head ([], venv) fs in
+  let assert_fun_body (args, result) fun_dec =
+    let { body; _ } = fun_dec.L.value in
+    (* now, lets build another [venv''] to be used for body processing
+     * it should have all the arguments in it *)
+    let add_var e (name, t) = Table.add name (VarEntry t) e in
+    let venv'' = List.fold_left add_var venv' args in
+    let { ty = body_ty; _ } = trans_expr venv'' tenv body in
+    if T.neq body_ty result
+    then type_mismatch_error
+        "type of the body expression doesn't match the declared result type, "
+        body result body_ty; in
+  (* now, lets check the bodies *)
+  List.iter2 assert_fun_body (List.rev sigs) fs;
   venv', tenv
 
 and trans_var venv tenv var =
@@ -275,32 +307,6 @@ and trans_var venv tenv var =
   let entry = Env.VarEntry init_ty in
   let venv' = Table.add var_name.L.value entry venv in
   venv', tenv
-
-and trans_fun venv tenv fn =
-  let open Syntax in
-  let open Env in
-  let { fun_name; params; body; result_typ; } = fn.L.value in
-  let tr_arg f = f.name.L.value, Table.find_ty f.typ tenv in
-  let args = List.map tr_arg params in
-  let result = match result_typ with
-    | None -> T.Unit
-    | Some t -> Table.find_ty t tenv in
-  let add_fun name env =
-    let formals = List.map snd args in
-    let entry = FunEntry (formals, result) in
-    Table.add name entry env in
-  let add_var env (name, t) = Table.add name (VarEntry t) env in
-  (* resulting environment that is used for
-   * processing expressions that allowed to call [fn] *)
-  let venv' = add_fun fun_name.L.value venv in
-  (* this environment is used to process the body *)
-  let venv'' = List.fold_left add_var venv' args in
-  let { ty = body_ty; _ } = trans_expr venv'' tenv body in
-  if T.neq body_ty result
-  then type_mismatch_error
-      "type of the body expression doesn't match the declared result type, "
-      body result body_ty;
-  venv
 
 (* translates an AST type expression into a
  * digested type description that we keep in the [tenv] *)
