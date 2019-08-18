@@ -28,12 +28,12 @@ let rec to_string = function
   | Array (t, u) -> sprintf "[%s]<%s>" (to_string t) (Unique.to_string u)
   | Record (_, u) -> sprintf "record<%s>" (Unique.to_string u)
 
-let eq x y = compare x y = 0
-
 let compare x y =
   match x, y with
   | Record (_, u1), Record (_, u2) ->
     Pervasives.compare u1 u2
+  | Record _, Nil -> 0
+  | Nil, Record _ -> 0
   | Array (_, u1), Array (_, u2) ->
     Pervasives.compare u1 u2
   | Name (sx, _), Name (sy, _) ->
@@ -41,4 +41,5 @@ let compare x y =
   | x, y ->
     Pervasives.compare x y
 
+let eq x y = compare x y = 0
 let neq a b = not (eq a b)

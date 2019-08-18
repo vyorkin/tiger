@@ -63,7 +63,6 @@
 %token EOF
 
 (* Associativity of operators *)
-%nonassoc "function"
 %nonassoc "of"
 %nonassoc "then"
 %nonassoc "else"

@@ -7,8 +7,36 @@ open Ch5.Lexer
 module Sys = Core.Sys
 module Filename = Core.Filename
 
-let skipped =
-  ["test49.tig"]
+let skipped = [
+  "test9.tig";
+  "test10.tig";
+  "test11.tig";
+  "test13.tig";
+  "test14.tig";
+  "test17.tig";
+  "test18.tig";
+  "test19.tig";
+  "test20.tig";
+  "test21.tig";
+  "test22.tig";
+  "test23.tig";
+  "test24.tig";
+  "test25.tig";
+  "test26.tig";
+  "test28.tig";
+  "test29.tig";
+  "test31.tig";
+  "test33.tig";
+  "test32.tig";
+  "test34.tig";
+  "test35.tig";
+  "test36.tig";
+  "test40.tig";
+  "test43.tig";
+  "test49.tig";
+  "merge.tig";
+  "queens.tig"
+]
 
 let is_tig_ext filename =
   let (_, ext) = Filename.split_extension filename in
