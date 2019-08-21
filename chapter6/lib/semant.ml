@@ -15,7 +15,7 @@ type expr_ty = {
   ty : Type.t;
 }
 
-let mk_ty ty = {expr = (); ty }
+let mk_ty ty = { expr = (); ty }
 
 let type_mismatch_error msg l t1 t2 =
   let msg' = sprintf

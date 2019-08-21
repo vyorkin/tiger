@@ -33,6 +33,7 @@ let rec trans_prog expr =
   ignore @@ trans_expr base_venv base_tenv (L.dummy expr)
 
 and trans_expr venv tenv expr =
+  (* TODO: this fun should receive an additional [level] argument  *)
   let open Syntax in
 
   let rec assert_ty t expr =
@@ -253,6 +254,7 @@ and trans_decs venv tenv =
 (* modifies and returns term-level and
  * type-level environments adding the given declaration *)
 and trans_dec venv tenv dec =
+  (* TODO: this fun should receive an additional [level] argument *)
   match dec with
   | TypeDec tys -> trans_tys venv tenv tys
   | FunDec fs -> trans_funs venv tenv fs
@@ -312,6 +314,7 @@ and trans_funs venv tenv fs =
   venv', tenv
 
 and trans_var venv tenv var =
+  (* TODO: this fun should receive an additional [level] argument  *)
   let open Syntax in
   let { var_name; var_typ; init; _ } = var.L.value in
   let { ty = init_ty; _ } = trans_expr venv tenv init in
