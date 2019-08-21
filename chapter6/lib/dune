@@ -1,0 +1,13 @@
+(menhir
+ (modules parser)
+ (flags ("--dump" "--explain")))
+
+(ocamllex
+ (modules lexer))
+
+(library
+ (name ch6)
+ (libraries core stdio)
+ (preprocess (pps ppx_deriving.show)))
+
+(env (dev (flags (:standard -warn-error -A))))
