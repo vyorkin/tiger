@@ -1,3 +1,5 @@
+type expr = unit
+
 (* We separate [Semant] from [Translate] module to
    avoid a huge, unweildy module that does both:
    type checking and semantic translation *)

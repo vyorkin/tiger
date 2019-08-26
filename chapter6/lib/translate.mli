@@ -1,3 +1,5 @@
+type expr = unit
+
 (** Represents a nesting level *)
 type level
 
