@@ -31,6 +31,7 @@ let outermost =
    its [FunEntry] data structure *)
 
 let mk parent label formals =
+  (* Stdio.print_endline ("Frame " ^ Temp.show_label label ^ " <" ^ string_of_int (List.length formals) ^ ">"); *)
   let formals = true :: formals in
   let frame = Frame.mk label formals in
   { parent; frame }
@@ -50,5 +51,6 @@ let formals lev =
    order to generate the machine code to access the variable *)
 
 let alloc_local lev esc =
+  (* Stdio.print_endline ("loc"); *)
   let access = Frame.alloc_local lev.frame esc in
   lev, access

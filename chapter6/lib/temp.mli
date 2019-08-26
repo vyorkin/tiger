@@ -1,10 +1,10 @@
 (** Abstract name for a local variable that
     is temporarily held in a register *)
-type t
+type t [@@deriving show]
 
 (** Abstract name for a static memory address that
     is yet to be determined *)
-type label
+type label [@@deriving show]
 
 (** Returns a new temporary from an infinite set of temporaries *)
 val mk : unit -> t

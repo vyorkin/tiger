@@ -1,1 +1,1 @@
-type t = unit
+type t = unit [@@deriving show]

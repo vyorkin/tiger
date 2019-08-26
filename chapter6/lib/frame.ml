@@ -28,6 +28,7 @@ type access =
   | InFrame of int
   (* register location *)
   | InReg of Temp.t
+  [@@deriving show]
 
 type t = {
   (* label at which the function's machine code begins *)
@@ -38,7 +39,7 @@ type t = {
   locals: int ref;
   (* instructions required to implement the "view shift" *)
   instrs: Instruction.t list;
-}
+} [@@deriving show]
 
 (* word size in bytes *)
 let word_size = 64 / 8 (* = 8 bytes *)

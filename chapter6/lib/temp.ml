@@ -8,9 +8,9 @@ module S = Symbol
 
    This module manages these two distinct sets of names *)
 
-type t = int
+type t = int [@@deriving show]
 
-type label = Symbol.t
+type label = Symbol.t [@@deriving show]
 
 let mk =
   let idx = ref (-1) in

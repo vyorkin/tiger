@@ -1,10 +1,10 @@
 (** Holds information about formal parameters and
     local variables allocated in this frame *)
-type t
+type t [@@deriving show]
 
 (** Abstract location of a formal parameter (function argument) or
     a local variable that may be placed in a frame or in a register *)
-type access
+type access [@@deriving show]
 
 (** Makes a new frame for a function with the
     given label and formal parameters *)
