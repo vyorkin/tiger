@@ -2,23 +2,22 @@
     local variables allocated in this frame *)
 type t
 
-(** Location of a formal parameter (function argument) or
+(** Abstract location of a formal parameter (function argument) or
     a local variable that may be placed in a frame or in a register *)
-type access =
-  | InFrame of int (** Indicates a memory location at the specific offset from the frame pointer *)
-  | InReg of Temp.t (** Indicates a register location *)
+type access
 
 (** Makes a new frame for a function with the
     given label and formal parameters *)
-val new_frame : Temp.label -> bool list -> t
+val mk : Temp.label -> bool list -> t
 
 (** Extracts a list of accesses denoting
     the locations where the formal parameters will be
     kept at runtime, as seen from inside the callee *)
 val formals : t -> access list
 
-(** Allocates a new local variable in the give frame.
+(** Allocates a new local variable in the given frame or in a register.
     The boolean argument specifies whether the new variable
     escapes and needs to go in the frame.
-    Returns an [InFrame] access with an offset from the frame pointer *)
+    Returns "in-memory" access with an offset from the frame pointer or
+    "in-register" access in case if it can be allocated in a register *)
 val alloc_local : t -> bool -> access

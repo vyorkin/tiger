@@ -5,16 +5,22 @@ type depth = int
 
 type env = (depth * bool ref) Table.t
 
-(** Whenever a variable or formal-parameter declaration [a] is
-    found at static function-nesting depth [d] then
-    a new binding (d, ref false) is entered into the environment.
+(* variable escapes if:
+   - it is passed by reference
+   - it is accessed from a nested function
+   - its address is taken (using C's "&" operator) *)
 
-    This new environment is used in processing expressions within the
-    scope of the variable.
 
-    Then whenever this var or formal-parameter [a] is
-    used at depth > d (which means that it escapes), then
-    our "escape ref" is set to [true] in the environment *)
+(* Whenever a variable or formal-parameter declaration [a] is
+   found at static function-nesting depth [d] then
+   a new binding (d, ref false) is entered into the environment.
+
+   This new environment is used in processing expressions within the
+   scope of the variable.
+
+   Then whenever this var or formal-parameter [a] is
+   used at depth > d (which means that it escapes), then
+   our "escape ref" is set to [true] in the environment *)
 
 let rec traverse_prog expr =
   ()

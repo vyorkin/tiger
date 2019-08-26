@@ -12,17 +12,18 @@ type t = int
 
 type label = Symbol.t
 
-let new_temp =
+let mk =
   let idx = ref (-1) in
   fun () ->
     incr idx;
     !idx
 
-let new_label =
+let mk_label name =
   let idx = ref (-1) in
-  fun () ->
+  match name with
+  | Some s ->
+    S.symbol s
+  | None ->
     incr idx;
     let name = string_of_int !idx in
     S.symbol name
-
-let named_label = S.symbol

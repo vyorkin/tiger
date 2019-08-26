@@ -1,23 +1,29 @@
+module T = Type
+module Table = Symbol.Table
+
 type access
 
+(** Variable entry *)
 type var_entry = {
-  access: Translate.access; (* Describes how to access the variable *)
-  ty: Type.t (* Type of the variable *)
+  access: Translate.access; (** Describes how to access the variable **)
+  ty: T.t (** Type of the variable *)
 }
 
+(** Function entry *)
 type fun_entry = {
-  level: Translate.level; (* nesting level *)
-  label: Temp.label; (* label of the machine-code entry point *)
-  formals: Type.t list;  (* types of the formal parameters *)
-  result: Type.t (* type of the result returned by the function (or unit) *)
+  level: Translate.level; (** Nesting level *)
+  label: Temp.label; (** Label of the machine-code entry point *)
+  formals: T.t list; (** Types of the formal parameters *)
+  result: T.t (** Type of the result returned by the function (or unit) **)
 }
 
+(** Term-level entry *)
 type entry =
   | VarEntry of var_entry
   | FunEntry of fun_entry
 
 (** Contains bindings for predefined functions *)
-val base_venv : entry Symbol.Table.t
+val base_venv : entry Table.t
 
 (** Predefined types *)
-val base_tenv : Type.t Symbol.Table.t
+val base_tenv : T.t Table.t
