@@ -1,7 +1,7 @@
 module S = Symbol
 module Table = S.Table
 
-type depth = int
+type depth = int [@@deriving show]
 
 type env = (depth * bool ref) Table.t
 

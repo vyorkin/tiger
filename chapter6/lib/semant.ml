@@ -10,7 +10,7 @@ module Table = S.Table
 type tenv = Type.t Table.t
 type venv = Env.entry Table.t
 
-type translated_expr = {
+type expr = {
   ty : Type.t;
   expr: Translate.expr;
 }
@@ -335,18 +335,17 @@ and trans_var venv tenv lev var =
   let open Syntax in
   let { var_name; var_typ; init; _ } = var.L.value in
   let { ty = init_ty; _ } = trans_expr venv tenv lev init in
-
-  (* lets see if the variable is annotated *)
-  (match var_typ with
-  | None -> ()
-  | Some ann_ty ->
-    (* check if the init expression has the
-     * same type as the variable annotation *)
-    let var_ty = T.actual @@ Table.find_ty ann_ty tenv in
-    if T.neq var_ty (T.actual init_ty)
-    then type_mismatch_error "" init var_ty init_ty
-  );
-  (*  *)
+  begin
+    (* lets see if the variable is annotated *)
+    match var_typ with
+    | None -> ()
+    | Some ann_ty ->
+      (* check if the init expression has the
+       * same type as the variable annotation *)
+      let var_ty = T.actual @@ Table.find_ty ann_ty tenv in
+      if T.neq var_ty (T.actual init_ty)
+      then type_mismatch_error "" init var_ty init_ty
+  end;
   let access = Translate.alloc_local lev true in
   let entry = Env.VarEntry { ty = init_ty; access } in
   let venv' = Table.add var_name.L.value entry venv in

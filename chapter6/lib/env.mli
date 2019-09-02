@@ -14,7 +14,7 @@ type fun_entry = {
   level: Translate.level; (** Nesting level *)
   label: Temp.label; (** Label of the machine-code entry point *)
   formals: T.t list; (** Types of the formal parameters *)
-  result: T.t (** Type of the result returned by the function (or unit) **)
+  result: T.t (** Type of the result returned by the function **)
 }
 
 (** Term-level entry *)

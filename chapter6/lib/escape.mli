@@ -2,7 +2,7 @@ module Table = Symbol.Table
 
 (** Depth (nesting level) of the function that
     contains the variable declaration *)
-type depth
+type depth [@@deriving show]
 
 (** Environment that maps variables to pairs of depth and
     a reference to a boolean flag indicating if a

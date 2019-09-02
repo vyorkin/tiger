@@ -1,4 +1,4 @@
-type expr = unit
+type expr = unit [@@deriving show]
 
 (* We separate [Semant] from [Translate] module to
    avoid a huge, unweildy module that does both:
@@ -7,7 +7,7 @@ type expr = unit
 type level = {
   parent: level option;
   frame: Frame.t
-}
+} [@@deriving show]
 
 (* the [level] part will be necessary later for calculating static links,
    when the variable is accessed from a (possibly) different level *)

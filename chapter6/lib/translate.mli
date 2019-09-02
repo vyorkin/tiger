@@ -8,7 +8,7 @@ type level
 type access = level * Frame.access
 
 (** Outermost level at which all
-    top-level functions are declared *)
+    top-level functions and variables are declared *)
 val outermost : level
 
 (** Creates a new "nesting level" for a function *)

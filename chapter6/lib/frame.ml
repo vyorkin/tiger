@@ -2,7 +2,7 @@
    different standard stack frame layout. But we don't want the
    specifics of any particular machine intruding on the
    implementation of the semantic analysis module of the Tiger compiler.
-   Thus we must use abstraction to represent frames*)
+   Thus we must use abstraction to represent frames *)
 
 (* We will use the x64 Linux ABI.
 
@@ -67,12 +67,12 @@ let r14 = "r14"
 let r15 = "r15"
 
 (* registers that are preserved by the caller *)
-let caller_preserved_regs = [r10; r11]
+let caller_regs = [r10; r11]
 
 (* registers that are preserved by the callee *)
-let callee_preserved_regs = [rbx; r12; r13; r14; r15]
+let callee_regs = [rbx; r12; r13; r14; r15]
 
-(* creates a new location formal parameter or
+(* creates a new location for a formal parameter or
    a local variable, given its index and [esc] flag *)
 let mk_access i = function
   | true -> InFrame ((i + 1) * (-word_size)) (* escapes -- alloc in frame *)
@@ -82,7 +82,7 @@ let mk_access i = function
 let mk label formals =
   let formals = List.mapi mk_access formals in
   let locals = ref 0 in
-	(* don't know yet what instruction we need,
+  (* don't know yet what instruction we need,
      so just leave it empty for now *)
   let instrs = [] in
   { label; formals; locals; instrs }
