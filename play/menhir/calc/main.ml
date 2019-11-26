@@ -20,4 +20,6 @@ let rec repeat ch =
     repeat ch
 
 let () =
-  repeat (Lexing.from_channel stdin)
+  let lexbuf = Lexing.from_string "1 + 2" in
+  let line, _ = Lexer.line lexbuf in
+  process line;

@@ -20,6 +20,11 @@ let
     core
     core_extended
     core_bench
+    js_of_ocaml
+    js_of_ocaml-compiler
+    js_of_ocaml-ppx
+    js_of_ocaml-ocamlbuild
+
     findlib
     utop
     merlin
