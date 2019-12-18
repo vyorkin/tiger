@@ -12,7 +12,7 @@ let error_name = function
   | SyntaxError -> "Syntax error"
 
 let fail err l msg =
-  raise @@ Error (err, l.L.loc, msg)
+  raise @@ Error (err, L.loc l, msg)
 
 let to_string err l msg =
   let range = L.range_string l in
