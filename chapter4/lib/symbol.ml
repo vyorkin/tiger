@@ -1,14 +1,16 @@
+open Core_kernel
+
 type t = int * string [@@deriving show]
 
 let symbol =
-  let tbl = Hashtbl.create 64 in
+  let tbl = Hashtbl.create (module String) in
   let idx = ref (-1) in
-  fun name ->
-    try
-      Hashtbl.find tbl name, name
-    with Not_found ->
+  fun key ->
+    match Hashtbl.find tbl key with
+    | Some x -> x, key
+    | None ->
       incr idx;
-      Hashtbl.add tbl name !idx;
-      !idx, name
+      Hashtbl.add_exn tbl ~key ~data:!idx;
+      !idx, key
 
 let name = snd

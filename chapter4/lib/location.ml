@@ -11,10 +11,6 @@ let mk value loc = { value; loc }
 
 let dummy value = mk value (dummy_pos, dummy_pos)
 
-let loc { loc; _ } = loc
-
-let value { value; _ } = value
-
 let range_string { loc; _ } =
   let (pos_start, pos_end) = loc in
   let line_start = pos_start.pos_lnum in

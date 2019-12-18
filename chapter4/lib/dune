@@ -8,6 +8,6 @@
 (library
  (name ch4)
  (libraries core stdio)
- (preprocess (pps ppx_deriving.show)))
+ (preprocess (pps ppx_deriving.show ppx_compare ppx_hash ppx_sexp_conv)))
 
 (env (dev (flags (:standard -warn-error -A))))
