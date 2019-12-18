@@ -294,7 +294,7 @@ and trans_funs venv tenv lev fs =
     let result = match result_typ with
       | None -> T.Unit
       | Some t -> Table.find_ty t tenv in
-    (* lets just assume that everything escapes for now (as adviced in ch6),
+    (* lets just assume that everything escapes for now (as adviced in ch7),
        the next step would be to lookup those in the [Escape.env] *)
     let esc_formals = List.map (fun _ -> true) args in
     (* generate a new label *)

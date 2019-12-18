@@ -1,6 +1,6 @@
 (executable
  (name testsuite)
- (libraries base core ch6 oUnit))
+ (libraries base core ch7 oUnit))
 
 (alias
  (name runtest)

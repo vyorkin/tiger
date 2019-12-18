@@ -6,7 +6,7 @@
  (modules lexer))
 
 (library
- (name ch6)
+ (name ch7)
  (libraries core stdio)
  (preprocess (pps ppx_deriving.show ppx_compare)))
 
