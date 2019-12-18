@@ -24,9 +24,9 @@
 (* Location of a formal parameter (function argument) or
    a local variable that may be placed in a frame or in a register *)
 type access =
-   (* memory location at the specific offset from the frame pointer *)
+  (* Memory location at the specific offset from the frame pointer *)
   | InFrame of int
-  (* register location *)
+  (* Register location *)
   | InReg of Temp.t
   [@@deriving show]
 

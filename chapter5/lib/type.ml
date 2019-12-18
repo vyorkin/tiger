@@ -14,7 +14,7 @@ type t =
 let rec actual = function
   | Name (sym, { contents = None }) ->
     type_error (Location.dummy sym) @@ Printf.sprintf
-    "type %s is undefined" (Symbol.name sym)
+      "type %s is undefined" (Symbol.name sym)
   | Name (_, { contents = Some t }) ->
     actual t
   | t -> t

@@ -71,13 +71,13 @@ and trans_expr venv tenv expr =
       (* check if all the arguments are supplied *)
       if List.length formals <> List.length args then
         type_error f @@ sprintf
-        "function \"%s\" expects %d formal arguments, but %d was given"
-        (S.name f.L.value) (List.length formals) (List.length args) ;
+          "function \"%s\" expects %d formal arguments, but %d was given"
+          (S.name f.L.value) (List.length formals) (List.length args) ;
       List.iter2 assert_ty formals args;
       mk_ty @@ T.actual result
 
   (* in our language binary operators work only with
-   * integer operands, except for (=) and (<>) *)
+     integer operands, except for (=) and (<>) *)
   and tr_op expr l r = function
     | Syntax.Eq | Syntax.Neq ->
       assert_comparison expr l r
@@ -106,7 +106,7 @@ and trans_expr venv tenv expr =
         (T.to_string expr_ty) (T.to_string var_ty)
 
   (* type of a sequence is a type of its last expression,
-   * but we need to check all previous expressions too *)
+     but we need to check all previous expressions too *)
   and tr_seq exprs =
     List.fold_left
       (fun _ expr -> tr_expr expr)
@@ -121,13 +121,13 @@ and trans_expr venv tenv expr =
       mk_ty t_ty
     | Some f ->
       (* If there is a false-branch then we should
-       * check if types of both branches match *)
+         check if types of both branches match *)
       let { ty = f_ty; _ } = tr_expr f in
       if T.eq t_ty f_ty
       then mk_ty t_ty
       else type_error expr @@ sprintf
-        "different types of branch expressions: \"%s\" and \"%s\""
-        (T.to_string t_ty) (T.to_string f_ty)
+          "different types of branch expressions: \"%s\" and \"%s\""
+          (T.to_string t_ty) (T.to_string f_ty)
 
   and tr_while cond body =
     assert_int cond;
@@ -149,7 +149,7 @@ and trans_expr venv tenv expr =
     (* then translate the body expression using
        the new augmented environments *)
     trans_expr venv' tenv' body
-    (* then the new environments are discarded *)
+  (* then the new environments are discarded *)
 
   and tr_record ty_name vfields =
     (* get the record type definition *)
@@ -157,7 +157,7 @@ and trans_expr venv tenv expr =
     match T.actual rec_typ with
     | T.Record (tfields, _) ->
       (* we want to check each field of the variable
-       * against the corresponding record type definition *)
+         against the corresponding record type definition *)
       List.iter
         (fun (name, expr) ->
            (* find a type of the field with [name] *)
@@ -174,7 +174,7 @@ and trans_expr venv tenv expr =
       mk_ty rec_typ
     | _ ->
       type_error ty_name @@ sprintf
-      "\"%s\" is not a record" (T.to_string rec_typ)
+        "\"%s\" is not a record" (T.to_string rec_typ)
 
   and tr_array typ size init =
     assert_int size;
@@ -191,7 +191,7 @@ and trans_expr venv tenv expr =
           "invalid type of array initial value, " init t init_t
     | _ ->
       type_error typ @@ sprintf
-      "\"%s\" is not array" (T.to_string arr_ty)
+        "\"%s\" is not array" (T.to_string arr_ty)
 
   and tr_var var =
     match var.L.value with
@@ -222,9 +222,9 @@ and trans_expr venv tenv expr =
     match rec_ty.ty with
     | Record (fields, _) ->
       (try
-        (* record is just a list of pairs (S.t * Type.t),
-         * lets try to find a type for the given [field],
-         * it is the type of the FieldVar expression  *)
+         (* record is just a list of pairs (S.t * Type.t),
+            lets try to find a type for the given [field],
+            it is the type of the FieldVar expression  *)
          mk_ty @@ T.actual @@ List.assoc field.L.value fields
        with Not_found ->
          missing_field_error rec_ty.ty field)
@@ -251,7 +251,7 @@ and trans_decs venv tenv =
     (venv, tenv)
 
 (* modifies and returns term-level and
- * type-level environments adding the given declaration *)
+   type-level environments adding the given declaration *)
 and trans_dec venv tenv = function
   | TypeDec tys -> trans_tys venv tenv tys
   | FunDec fs -> trans_funs venv tenv fs
@@ -298,7 +298,7 @@ and trans_funs venv tenv fs =
   let assert_fun_body (args, result) fun_dec =
     let { body; _ } = fun_dec.L.value in
     (* now, lets build another [venv''] to be used for body processing
-     * it should have all the arguments in it *)
+       it should have all the arguments in it *)
     let add_var e (name, t) = Table.add name (VarEntry t) e in
     let venv'' = List.fold_left add_var venv' args in
     let { ty = body_ty; _ } = trans_expr venv'' tenv body in
@@ -317,20 +317,20 @@ and trans_var venv tenv var =
 
   (* lets see if the variable is annotated *)
   (match var_typ with
-  | None -> ()
-  | Some ann_ty ->
-    (* check if the init expression has the
-     * same type as the variable annotation *)
-    let var_ty = T.actual @@ Table.find_ty ann_ty tenv in
-    if T.neq var_ty (T.actual init_ty)
-    then type_mismatch_error "" init var_ty init_ty
+   | None -> ()
+   | Some ann_ty ->
+     (* check if the init expression has the
+        same type as the variable annotation *)
+     let var_ty = T.actual @@ Table.find_ty ann_ty tenv in
+     if T.neq var_ty (T.actual init_ty)
+     then type_mismatch_error "" init var_ty init_ty
   );
   let entry = Env.VarEntry init_ty in
   let venv' = Table.add var_name.L.value entry venv in
   venv', tenv
 
 (* translates an AST type expression into a
- * digested type description that we keep in the [tenv] *)
+   digested type description that we keep in the [tenv] *)
 and trans_ty tenv typ =
   let open Syntax in
   match typ with
