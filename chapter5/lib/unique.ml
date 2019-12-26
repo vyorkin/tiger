@@ -1,6 +1,6 @@
 open Printf
 
-type t = int [@@deriving eq, ord]
+type t = int [@@deriving eq]
 
 let mk =
   let n = ref (-1) in

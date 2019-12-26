@@ -9,7 +9,7 @@ type t =
   | Nil
   | Unit
   | Name of Symbol.t * t option ref
-  [@@deriving eq, ord]
+  [@@deriving eq]
 
 (** Recursively lookups the underlying type *)
 let rec actual = function

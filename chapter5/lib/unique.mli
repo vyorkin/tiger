@@ -1,5 +1,5 @@
 (** Used for equality testing to distinguish between different record types *)
-type t [@@deriving eq, ord]
+type t [@@deriving eq]
 
 val mk : unit -> t
 
