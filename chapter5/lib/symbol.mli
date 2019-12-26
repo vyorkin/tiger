@@ -1,6 +1,6 @@
 module L = Location
 
-type t [@@deriving eq, ord, show]
+type t [@@deriving eq, show]
 
 val symbol : string -> t
 val id : t -> int

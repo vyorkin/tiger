@@ -4,7 +4,7 @@ type t =
   | SyntaxError
   | TypeError
   | IdError
-  [@@deriving show]
+[@@deriving show]
 
 exception Error of t * L.loc * string
 

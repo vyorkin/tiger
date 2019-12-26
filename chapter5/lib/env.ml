@@ -1,6 +1,6 @@
+open Symbol
+
 module T = Type
-module S = Symbol
-module Table = S.Table
 
 type access
 
@@ -14,5 +14,5 @@ let base_venv = Table.empty
 
 let base_tenv =
   Table.empty
-  |> Table.add (S.symbol "string") T.String
-  |> Table.add (S.symbol "int") T.Int
+  |> Table.add (symbol "string") T.String
+  |> Table.add (symbol "int") T.Int

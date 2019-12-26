@@ -2,8 +2,8 @@ open Error
 
 module L = Location
 
-type sym = int * string [@@deriving eq, ord, show]
-type t = sym [@@deriving eq, ord, show]
+type sym = int * string [@@deriving eq, show]
+type t = sym [@@deriving eq, show]
 
 let symbol =
   let tbl = Hashtbl.create 64 in

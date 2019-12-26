@@ -1,13 +1,17 @@
+open Symbol
+
+module T = Type
+
 type access
 
 type entry =
-  | VarEntry of Type.t
+  | VarEntry of T.t
   | FunEntry of
-      Type.t list * (* types of the formal parameters *)
-      Type.t (* type of the result returned by the function (or unit) *)
+      T.t list * (* types of the formal parameters *)
+      T.t (* type of the result returned by the function (or unit) *)
 
 (** Contains bindings for predefined functions *)
-val base_venv : entry Symbol.Table.t
+val base_venv : entry Table.t
 
 (** Predefined types *)
-val base_tenv : Type.t Symbol.Table.t
+val base_tenv : T.t Table.t

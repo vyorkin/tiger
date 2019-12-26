@@ -329,7 +329,7 @@ and trans_var venv tenv var =
   let venv' = Table.add var_name.L.value entry venv in
   venv', tenv
 
-(* translates an AST type expression into a
+(* translates AST type expression into a
    digested type description that we keep in the [tenv] *)
 and trans_ty tenv typ =
   let open Syntax in
