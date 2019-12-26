@@ -37,7 +37,7 @@ and trans_expr venv tenv expr =
 
   let rec assert_ty t expr =
     let { ty; _ } = tr_expr expr in
-    if T.neq (T.actual ty) (T.actual t)
+    if (T.actual ty) <> (T.actual t)
     then type_mismatch_error "" expr t ty
 
   and assert_int expr = assert_ty T.Int expr
@@ -87,7 +87,7 @@ and trans_expr venv tenv expr =
   and assert_comparison expr l r =
     let { ty = ty_l; _ } = tr_expr l in
     let { ty = ty_r; _ } = tr_expr r in
-    if T.neq (T.actual ty_l) (T.actual ty_r)
+    if (T.actual ty_l) <> (T.actual ty_r)
     then type_mismatch_error "" expr ty_l ty_r;
     mk_ty ty_l
 
@@ -99,7 +99,7 @@ and trans_expr venv tenv expr =
   and tr_assign var expr =
     let { ty = var_ty; _ } = tr_var var in
     let { ty = expr_ty; _ } = tr_expr expr in
-    if T.eq var_ty expr_ty
+    if var_ty = expr_ty
     then mk_ty var_ty
     else type_error expr @@ sprintf
         "invalid assigment of type \"%s\" to a variable of type \"%s\""
@@ -123,7 +123,7 @@ and trans_expr venv tenv expr =
       (* If there is a false-branch then we should
          check if types of both branches match *)
       let { ty = f_ty; _ } = tr_expr f in
-      if T.eq t_ty f_ty
+      if t_ty = f_ty
       then mk_ty t_ty
       else type_error expr @@ sprintf
           "different types of branch expressions: \"%s\" and \"%s\""
@@ -166,7 +166,7 @@ and trans_expr venv tenv expr =
              let { ty = tn; _ } = tr_expr expr in
              let ty = T.actual tn in
              let tv = T.actual tvn in
-             if T.neq ty tv
+             if ty <> tv
              then type_mismatch_error "" expr ty tv
            | None -> missing_field_error rec_typ name
         )
@@ -185,7 +185,7 @@ and trans_expr venv tenv expr =
     | T.Array (tn, _) ->
       let t = T.actual tn in
       let init_t = T.actual init_tn in
-      if T.eq t init_t
+      if t = init_t
       then mk_ty arr_ty
       else type_mismatch_error
           "invalid type of array initial value, " init t init_t
@@ -302,7 +302,7 @@ and trans_funs venv tenv fs =
     let add_var e (name, t) = Table.add name (VarEntry t) e in
     let venv'' = List.fold_left add_var venv' args in
     let { ty = body_ty; _ } = trans_expr venv'' tenv body in
-    if T.neq body_ty result
+    if body_ty <> result
     then type_mismatch_error
         "type of the body expression doesn't match the declared result type, "
         body result body_ty; in
@@ -322,7 +322,7 @@ and trans_var venv tenv var =
      (* check if the init expression has the
         same type as the variable annotation *)
      let var_ty = T.actual @@ Table.find_ty ann_ty tenv in
-     if T.neq var_ty (T.actual init_ty)
+     if var_ty <> (T.actual init_ty)
      then type_mismatch_error "" init var_ty init_ty
   );
   let entry = Env.VarEntry init_ty in
