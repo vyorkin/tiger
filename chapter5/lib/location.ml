@@ -2,15 +2,6 @@ open Lexing
 
 type loc = position * position
 
-type 'a t =
-  { value: 'a;
-    loc: loc [@printer fun fmt _ -> fprintf fmt "<>"]
-  } [@@deriving show]
-
-let mk value loc = { value; loc }
-
-let dummy value = mk value (dummy_pos, dummy_pos)
-
 let range_string loc =
   let (pos_start, pos_end) = loc in
   let line_start = pos_start.pos_lnum in
@@ -19,3 +10,12 @@ let range_string loc =
   let col_end = pos_end.pos_cnum - pos_end.pos_bol in
   Printf.sprintf "(%d,%d)-(%d,%d)"
     line_start col_start line_end col_end
+
+type 'a t =
+  { value: 'a;
+    loc: loc [@printer fun fmt l -> Format.pp_print_string fmt (range_string l)]
+  } [@@deriving show { with_path = false }]
+
+let mk value loc = { value; loc }
+
+let dummy value = mk value (dummy_pos, dummy_pos)

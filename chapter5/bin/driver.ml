@@ -35,7 +35,7 @@ let run_parser filename () =
   In_channel.with_file filename ~f:(parse filename)
 
 let () =
-  let spec = Command.Spec.(empty +> anon ("filename" %: file)) in
+  let spec = Command.Spec.(empty +> anon ("filename" %: string)) in
   run_parser
   |> Command.basic_spec ~summary:"Run the parser" spec
   |> Command.run

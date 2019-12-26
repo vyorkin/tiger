@@ -14,20 +14,20 @@ type op =
   | Lt
   | Eq
   | Neq
-  [@@deriving show]
+  [@@deriving show { with_path = false }]
 
 type field = {
   name : S.t L.t;
   typ : S.t L.t;
   escape : bool ref;
-} [@@deriving show]
+} [@@deriving show { with_path = false }]
 
 (* Type *)
 type ty =
   | NameTy of S.t L.t
   | RecordTy of field list
   | ArrayTy of S.t L.t
-  [@@deriving show]
+  [@@deriving show { with_path = false }]
 
 type expr =
   | Var of var L.t
@@ -60,7 +60,7 @@ type expr =
   | Array of S.t L.t * (* type *)
              expr L.t * (* size *)
              expr L.t (* init *)
-  [@@deriving show]
+  [@@deriving show { with_path = false }]
 
 (* Variable *)
 and var =
@@ -71,14 +71,14 @@ and var =
   | SubscriptVar of
       var L.t * (* var *)
       expr L.t (* subscript / index *)
-  [@@deriving show]
+  [@@deriving show { with_path = false }]
 
 (* Type(s), value or function(s) declaration *)
 and dec =
   | TypeDec of type_dec L.t list
   | FunDec of fun_dec L.t list
   | VarDec of var_dec L.t
-  [@@deriving show]
+  [@@deriving show { with_path = false }]
 
 (* Value declaration *)
 and var_dec = {
@@ -92,7 +92,7 @@ and var_dec = {
 and type_dec = {
   type_name : S.t L.t;
   typ : ty;
-} [@@deriving show]
+} [@@deriving show { with_path = false }]
 
 (* Function declaration *)
 and fun_dec = {
@@ -100,4 +100,4 @@ and fun_dec = {
   params : field list;
   body : expr L.t;
   result_typ : S.t L.t option;
-} [@@deriving show]
+} [@@deriving show { with_path = false }]
