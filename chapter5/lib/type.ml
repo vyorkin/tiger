@@ -1,21 +1,23 @@
-open Error
-open Printf
+open Err
+open Core_kernel
+
+module S = Symbol
 
 type t =
   | Int
   | String
-  | Record of (Symbol.t * t) list * Unique.t
+  | Record of (S.t * t) list * Unique.t
   | Array of t * Unique.t
   | Nil
   | Unit
-  | Name of Symbol.t * t option ref
-  [@@deriving eq]
+  | Name of S.t * t option ref
+  [@@deriving eq, show]
 
 (** Recursively lookups the underlying type *)
 let rec actual = function
   | Name (sym, { contents = None }) ->
     type_error (Location.dummy sym) @@ Printf.sprintf
-      "type %s is undefined" (Symbol.name sym)
+      "type %s is undefined" sym.S.name
   | Name (_, { contents = Some t }) ->
     actual t
   | t -> t
@@ -25,6 +27,6 @@ let rec to_string = function
   | String -> "string"
   | Nil -> "nil"
   | Unit -> "()"
-  | Name (s, _) -> Symbol.name s
+  | Name (s, _) -> s.S.name
   | Array (t, u) -> sprintf "[%s]<%s>" (to_string t) (Unique.to_string u)
   | Record (_, u) -> sprintf "record<%s>" (Unique.to_string u)

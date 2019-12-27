@@ -11,12 +11,12 @@ type expr = {
 }
 
 (** Type-checks an AST and produces an error in
-    case of mismatching types or undeclared identifiers. *)
+    case of mismatching types or undeclared identifiers *)
 val trans_prog : Syntax.expr -> unit
 
-(** Type-checks and translates the expression into intermediate code. *)
+(** Type-checks and translates the expression into intermediate code *)
 val trans_expr : venv -> tenv -> Translate.level -> Syntax.expr Location.t -> expr
 
 (** Translates a AST type expression into
-    a digested type description that we keed in the type-level environment. *)
+    a digested type description that we keed in the type-level environment *)
 val trans_ty : tenv -> Syntax.ty -> Type.t

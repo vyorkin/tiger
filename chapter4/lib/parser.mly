@@ -78,7 +78,7 @@
 
 %{ open Syntax %}
 %{ module L = Location %}
-%{ module E = Error %}
+%{ module E = Err %}
 
 %%
 

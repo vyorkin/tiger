@@ -78,7 +78,7 @@
 
 %{ open Syntax %}
 %{ module L = Location %}
-%{ module E = Error %}
+%{ module E = Err %}
 
 %%
 
@@ -154,7 +154,7 @@ let while_loop :=
 let for_loop :=
   "for"; i = "id"; ":="; lo = loc(expr);
   "to"; hi = loc(expr); "do"; body = loc(expr);
-  { For(S.symbol i, lo, hi, body, ref true) }
+  { For(S.mk i, lo, hi, body, ref true) }
 
 let conditional :=
   | "if"; cond = loc(expr); "then"; t = loc(expr); "else"; f = loc(expr);
@@ -257,7 +257,7 @@ let lvalue_complex :=
     <SubscriptVar>
 
 let symbol :=
-  x = loc("id"); { L.mk (S.symbol x.L.value) x.L.loc }
+  x = loc("id"); { L.mk (S.mk x.L.value) x.L.loc }
 
 (* Assignment of the expression to lvalue *)
 let assignment :=
