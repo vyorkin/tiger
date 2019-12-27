@@ -1,4 +1,4 @@
-open Error
+open Err
 open Printf
 
 type t =

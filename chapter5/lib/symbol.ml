@@ -8,7 +8,7 @@ module T = struct
   type t = {
     id : int;
     name : string;
-  } [@@deriving compare, eq, sexp, show]
+  } [@@deriving compare, eq, sexp, show { with_path = false }]
 
   let mk =
     let tbl = Hashtbl.create (module String) in
