@@ -1,47 +1,51 @@
-open Error
-open Printf
+open Core_kernel
+open Err
 
 module T = Type
 module L = Location
 module U = Unique
 module S = Symbol
-module Table = S.Table
 
-type tenv = Type.t Table.t
-type venv = Env.entry Table.t
+type tenv = Type.t S.Table.t
+type venv = Env.entry S.Table.t
 
 type expr = {
+  expr : Translate.expr;
   ty : Type.t;
-  expr: Translate.expr;
 }
 
 let mk ty = { ty; expr = () }
 
-let type_mismatch_error msg l t1 t2 =
+let type_mismatch_error4 msg l t1 t2 =
   let msg' = sprintf
       "type \"%s\" is expected, but found \"%s\""
       (T.to_string t1) (T.to_string t2) in
   type_error l @@ msg ^ msg'
 
+let type_mismatch_error3 l t1 t2 =
+  type_mismatch_error4 "" l t1 t2
+
 let missing_field_error t name =
   id_error name @@ sprintf
     "record of type \"%s\" doesn't have field \"%s\""
-    (T.to_string t) (S.name name.L.value)
+    (T.to_string t) (name.L.value.S.name)
 
 let rec trans_prog expr =
   let open Env in
-  ignore @@ trans_expr base_venv base_tenv Translate.outermost (L.dummy expr)
+  ignore @@ trans_expr base_venv base_tenv
+    Translate.outermost (L.dummy expr)
 
 and trans_expr venv tenv level expr =
   let open Syntax in
 
-  let rec assert_ty t lev expr =
+  let rec assert_ty t expr ~lev =
+    let open T in
     let { ty; _ } = tr_expr lev expr in
-    if T.neq (T.actual ty) (T.actual t)
-    then type_mismatch_error "" expr t ty
+    if ~!ty <> ~!t
+    then type_mismatch_error3 expr t ty
 
-  and assert_int lev expr = assert_ty T.Int lev expr
-  and assert_unit lev expr = assert_ty T.Unit lev expr
+  and assert_int lev expr = assert_ty T.Int expr ~lev
+  and assert_unit lev expr = assert_ty T.Unit expr ~lev
 
   and tr_expr lev expr =
     match expr.L.value with
@@ -62,19 +66,19 @@ and trans_expr venv tenv level expr =
     | Array (ty, size, init) -> tr_array lev ty size init
 
   and tr_call lev f args =
-    match Table.find_fun f venv with
+    match S.Table.find_fun f venv with
     | Env.VarEntry { ty; _ } ->
       type_error f @@ sprintf
         "expected function, but found variable \"%s\" of type \"%s\""
-        (S.name f.L.value) (T.to_string ty)
+        (f.L.value.S.name) (T.to_string ty)
     | Env.FunEntry { formals; result; _ } ->
       (* check if all the arguments are supplied *)
       if List.length formals <> List.length args then
         type_error f @@ sprintf
-        "function \"%s\" expects %d formal arguments, but %d was given"
-        (S.name f.L.value) (List.length formals) (List.length args) ;
-      List.iter2 (fun f a -> assert_ty f lev a) formals args;
-      mk (T.actual result)
+          "function \"%s\" expects %d formal arguments, but %d was given"
+          (f.L.value.S.name) (List.length formals) (List.length args) ;
+      List.iter2_exn formals args ~f:(assert_ty ~lev);
+      T.(mk ~!result)
 
   (* in our language binary operators work only with
    * integer operands, except for (=) and (<>) *)
@@ -86,10 +90,11 @@ and trans_expr venv tenv level expr =
       assert_op lev l r
 
   and assert_comparison lev expr l r =
+    let open T in
     let { ty = ty_l; _ } = tr_expr lev l in
     let { ty = ty_r; _ } = tr_expr lev r in
-    if T.neq (T.actual ty_l) (T.actual ty_r)
-    then type_mismatch_error "" expr ty_l ty_r;
+    if ~!ty_l <> ~!ty_r
+    then type_mismatch_error3 expr ty_l ty_r;
     mk ty_l
 
   and assert_op lev l r =
@@ -100,7 +105,7 @@ and trans_expr venv tenv level expr =
   and tr_assign lev var expr =
     let { ty = var_ty; _ } = tr_var lev var in
     let { ty = expr_ty; _ } = tr_expr lev expr in
-    if T.eq var_ty expr_ty
+    if T.(var_ty = expr_ty)
     then mk var_ty
     else type_error expr @@ sprintf
         "invalid assigment of type \"%s\" to a variable of type \"%s\""
@@ -110,8 +115,8 @@ and trans_expr venv tenv level expr =
    * but we need to check all previous expressions too *)
   and tr_seq lev exprs =
     List.fold_left
-      (fun _ expr -> tr_expr lev expr)
-      (mk T.Unit)
+      ~f:(fun _ expr -> tr_expr lev expr)
+      ~init:(mk T.Unit)
       exprs
 
   and tr_cond lev cond t f =
@@ -124,11 +129,11 @@ and trans_expr venv tenv level expr =
       (* If there is a false-branch then we should
        * check if types of both branches match *)
       let { ty = f_ty; _ } = tr_expr lev f in
-      if T.eq t_ty f_ty
+      if T.(t_ty = f_ty)
       then mk t_ty
       else type_error expr @@ sprintf
-        "different types of branch expressions: \"%s\" and \"%s\""
-        (T.to_string t_ty) (T.to_string f_ty)
+          "different types of branch expressions: \"%s\" and \"%s\""
+          (T.to_string t_ty) (T.to_string f_ty)
 
   and tr_while lev cond body =
     assert_int lev cond;
@@ -150,49 +155,52 @@ and trans_expr venv tenv level expr =
     (* then mk the body expression using
        the new augmented environments *)
     trans_expr venv' tenv' lev body
-    (* then the new environments are discarded *)
+  (* then the new environments are discarded *)
+
+  and tr_record_field lev rec_typ tfields (name, expr) =
+    (* find a type of the field with [name] *)
+    match List.Assoc.find tfields ~equal:S.equal name.L.value with
+    | Some tvn ->
+      let open T in
+      let { ty = tn; _ } = tr_expr lev expr in
+      let ty = ~!tn in
+      let tv = ~!tvn in
+      if ty <> tv then type_mismatch_error3 expr ty tv
+    | None ->
+      missing_field_error rec_typ name
 
   and tr_record lev ty_name vfields =
+    let open T in
     (* get the record type definition *)
-    let rec_typ = Table.find_ty ty_name tenv in
+    let rec_typ = S.Table.find_ty ty_name tenv in
     match T.actual rec_typ with
     | T.Record (tfields, _) ->
       (* we want to check each field of the variable
        * against the corresponding record type definition *)
-      List.iter
-        (fun (name, expr) ->
-           (* find a type of the field with [name] *)
-           match List.assoc_opt name.L.value tfields with
-           | Some tvn ->
-             let { ty = tn; _ } = tr_expr lev expr in
-             let ty = T.actual tn in
-             let tv = T.actual tvn in
-             if T.neq ty tv
-             then type_mismatch_error "" expr ty tv
-           | None -> missing_field_error rec_typ name
-        )
-        vfields;
+
+      List.iter ~f:(tr_record_field lev rec_typ tfields) vfields;
       mk rec_typ
     | _ ->
       type_error ty_name @@ sprintf
-      "\"%s\" is not a record" (T.to_string rec_typ)
+        "\"%s\" is not a record" (T.to_string rec_typ)
 
   and tr_array lev typ size init =
+    let open T in
     assert_int lev size;
     let { ty = init_tn; _ } = tr_expr lev init in
     (* find the type of this particular array *)
-    let arr_ty = Table.find_ty typ tenv in
+    let arr_ty = S.Table.find_ty typ tenv in
     match T.actual arr_ty with
     | T.Array (tn, _) ->
       let t = T.actual tn in
-      let init_t = T.actual init_tn in
-      if T.eq t init_t
+      let init_t = ~!init_tn in
+      if t = init_t
       then mk arr_ty
-      else type_mismatch_error
+      else type_mismatch_error4
           "invalid type of array initial value, " init t init_t
     | _ ->
       type_error typ @@ sprintf
-      "\"%s\" is not array" (T.to_string arr_ty)
+        "\"%s\" is not array" (T.to_string arr_ty)
 
   and tr_var lev var =
     match var.L.value with
@@ -204,14 +212,14 @@ and trans_expr venv tenv level expr =
       tr_subscript_var lev var sub
 
   and tr_simple_var var =
-    match Table.find_var var venv with
+    match S.Table.find_var var venv with
     | Env.VarEntry { ty; _ }  ->
-      mk (T.actual ty)
+      T.(mk ~!ty)
     | Env.FunEntry { formals; result; _ } ->
       let signature =
         formals
-        |> List.map T.to_string
-        |> String.concat ", " in
+        |> List.map ~f:T.to_string
+        |> String.concat ~sep:", " in
       type_error var @@ sprintf
         "expected variable, but found a function \"(%s) : %s\""
         signature (T.to_string result)
@@ -222,14 +230,12 @@ and trans_expr venv tenv level expr =
     (* lets see if its actually a record *)
     match rec_ty.ty with
     | Record (fields, _) ->
-      (try
-        (* record is just a list of pairs (S.t * Type.t),
-         * lets try to find a type for the given [field],
-         * it is the type of the FieldVar expression  *)
-         let tt = List.assoc field.L.value fields in
-         mk (T.actual tt)
-       with Not_found ->
-         missing_field_error rec_ty.ty field)
+      (* record is just a list of pairs (S.t * Type.t),
+         lets try to find a type for the given [field],
+         it is the type of the [FieldVar] expression  *)
+      (match List.Assoc.find fields ~equal:S.equal field.L.value with
+       | Some tt -> T.(mk ~!tt)
+       | None -> missing_field_error rec_ty.ty field)
     | _ ->
       type_error var @@ sprintf
         "expected record, but \"%s\" found"
@@ -247,10 +253,10 @@ and trans_expr venv tenv level expr =
 
   in tr_expr level expr
 
-and trans_decs venv tenv lev decs =
+and trans_decs venv tenv lev =
   List.fold_left
-    (fun (venv, tenv) dec -> trans_dec venv tenv lev dec)
-    (venv, tenv) decs
+    ~f:(fun (venv, tenv) dec -> trans_dec venv tenv lev dec)
+    ~init:(venv, tenv)
 
 (* modifies and returns term-level and
  * type-level environments adding the given declaration *)
@@ -267,17 +273,17 @@ and trans_tys venv tenv tys =
     let sym = ty_dec.L.value.type_name.L.value in
     let tn = ref None in
     (* add a type-reference, without body *)
-    let tenv' = Table.add sym (T.Name (sym, tn)) tenv in
+    let tenv' = S.Table.add_exn tenv ~key:sym ~data:(T.Name (sym, tn)) in
     tn :: tns, tenv' in
   (* first, we add all the type names to the [tenv] *)
-  let (tns, tenv') = List.fold_left tr_ty_head ([], tenv) tys in
+  let (tns, tenv') = List.fold_left tys ~init:([], tenv) ~f:tr_ty_head in
   let resolve_ty tn ty_dec =
     let { typ; _ } = ty_dec.L.value in
     (* resolve the type body *)
     let t = trans_ty tenv' typ in
     tn := Some t in
   (* resolve the (possibly mutually recursive) types *)
-  List.iter2 resolve_ty (List.rev tns) tys;
+  List.iter2_exn (List.rev tns) tys ~f:resolve_ty;
   venv, tenv'
 
 (* translates (possibly mutually-recursive) functions,
@@ -289,26 +295,26 @@ and trans_funs venv tenv lev fs =
   let tr_decl (sigs, venv) fun_dec =
     let { fun_name; params; result_typ; _ } = fun_dec.L.value in
     (* mk function arguments *)
-    let args = List.map (fun f -> f.name.L.value, Table.find_ty f.typ tenv) params in
+    let args = List.map params ~f:(fun f -> f.name.L.value, S.Table.find_ty f.typ tenv) in
     (* mk the result type *)
     let result = match result_typ with
       | None -> T.Unit
-      | Some t -> Table.find_ty t tenv in
+      | Some t -> S.Table.find_ty t tenv in
     (* lets just assume that everything escapes for now (as adviced in ch6),
        the next step would be to lookup those in the [Escape.env] *)
-    let esc_formals = List.map (fun _ -> true) args in
+    let esc_formals = List.map args ~f:(fun _ -> true) in
     (* generate a new label *)
     let label = Temp.mk_label None in
     (* create a new "nesting level" *)
     let level = Translate.mk (Some lev) label esc_formals in
     (* get types of the formal parameters *)
-    let formals = List.map snd args in
+    let formals = List.map args ~f:snd in
     let entry = FunEntry { level; label; formals; result } in
-    let venv' = Table.add fun_name.L.value entry venv in
+    let venv' = S.Table.add_exn venv ~key:fun_name.L.value ~data:entry in
     (args, result) :: sigs, venv' in
 
   (* first, we add all the function entries to the [venv] *)
-  let (sigs, venv') = List.fold_left tr_decl ([], venv) fs in
+  let (sigs, venv') = List.fold_left fs ~f:tr_decl ~init:([], venv) in
 
   let assert_body (args, result) fun_dec =
     (* now, lets build another [venv''] to be used for body processing
@@ -317,18 +323,18 @@ and trans_funs venv tenv lev fs =
       (* lets just assume that each variable escapes for now *)
       let access = Translate.alloc_local lev true in
       let entry = VarEntry { ty; access } in
-      Table.add name entry e
+      S.Table.add_exn e ~key:name ~data:entry
     in
-    let venv'' = List.fold_left add_var venv' args in
+    let venv'' = List.fold_left args ~f:add_var ~init:venv' in
     let { body; _ } = fun_dec.L.value in
     let body_te = trans_expr venv'' tenv lev body in
-    if T.neq body_te.ty result
-    then type_mismatch_error
+    if T.(body_te.ty <> result)
+    then type_mismatch_error4
         "type of the body expression doesn't match the declared result type, "
         body result body_te.ty; in
 
-  (* now, lets mk the bodies *)
-  List.iter2 assert_body (List.rev sigs) fs;
+  (* now, lets asssert the bodies *)
+  List.iter2_exn (List.rev sigs) fs ~f:assert_body;
   venv', tenv
 
 and trans_var venv tenv lev var =
@@ -340,15 +346,16 @@ and trans_var venv tenv lev var =
     match var_typ with
     | None -> ()
     | Some ann_ty ->
+      let open T in
       (* check if the init expression has the
        * same type as the variable annotation *)
-      let var_ty = T.actual @@ Table.find_ty ann_ty tenv in
-      if T.neq var_ty (T.actual init_ty)
-      then type_mismatch_error "" init var_ty init_ty
+     let var_ty = ~!(S.Table.find_ty ann_ty tenv) in
+     if var_ty <> ~!init_ty
+     then type_mismatch_error3 init var_ty init_ty
   end;
   let access = Translate.alloc_local lev true in
   let entry = Env.VarEntry { ty = init_ty; access } in
-  let venv' = Table.add var_name.L.value entry venv in
+  let venv' = S.Table.add_exn venv ~key:var_name.L.value ~data:entry in
   venv', tenv
 
 (* translates an AST type expression into a
@@ -357,11 +364,11 @@ and trans_ty tenv typ =
   let open Syntax in
   match typ with
   | NameTy t ->
-    Table.find_ty t tenv
+    S.Table.find_ty t tenv
   | RecordTy dec_fields ->
     let to_field { name; typ; _ } =
-      name.L.value, Table.find_ty typ tenv in
-    let ty_fields = List.map to_field dec_fields in
+      name.L.value, S.Table.find_ty typ tenv in
+    let ty_fields = List.map dec_fields ~f:to_field  in
     T.Record (ty_fields, U.mk ())
   | ArrayTy t ->
-    T.Array (Table.find_ty t tenv, U.mk ())
+    T.Array (S.Table.find_ty t tenv, U.mk ())

@@ -1,15 +1,17 @@
+module L = Location
+
 type t =
   | SyntaxError
   | TypeError
   | IdError
   [@@deriving show]
 
-exception Error of t * Location.loc * string
+exception Error of t * L.loc * string
 
-val fail : t -> 'a Location.t -> string -> 'b
+val fail : t -> 'a L.t -> string -> 'b
 
-val syntax_error : 'a Location.t -> string -> 'b
-val type_error   : 'a Location.t -> string -> 'b
-val id_error     : 'a Location.t -> string -> 'b
+val syntax_error : 'a L.t -> string -> 'b
+val type_error   : 'a L.t -> string -> 'b
+val id_error     : 'a L.t -> string -> 'b
 
-val to_string : t -> Location.loc -> string -> string
+val to_string : t -> L.loc -> string -> string

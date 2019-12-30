@@ -6,8 +6,8 @@ type venv = Env.entry Symbol.Table.t
 
 (** Translated expression and its type *)
 type expr = {
-  ty : Type.t;
   expr : Translate.expr;
+  ty : Type.t;
 }
 
 (** Type-checks an AST and produces an error in

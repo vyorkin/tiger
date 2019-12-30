@@ -22,8 +22,8 @@ let mk_label name =
   let idx = ref (-1) in
   match name with
   | Some s ->
-    S.symbol s
+    S.mk s
   | None ->
     incr idx;
     let name = string_of_int !idx in
-    S.symbol name
+    S.mk name

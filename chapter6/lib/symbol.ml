@@ -1,40 +1,45 @@
 open Err
+open Core_kernel
 
 module L = Location
 
-type sym = int * string [@@deriving show]
-type t = sym [@@deriving show]
+module T = struct
+  type s = private int
 
-let symbol =
-  let tbl = Hashtbl.create 64 in
-  let idx = ref (-1) in
-  fun name ->
-    try
-      Hashtbl.find tbl name, name
-    with Not_found ->
-      incr idx;
-      Hashtbl.add tbl name !idx;
-      !idx, name
+  type t = {
+    id : int;
+    name : string;
+  } [@@deriving compare, eq, sexp, show { with_path = false }]
 
-let id = fst
-let name = snd
+  let (=) x y = equal x y
+  let (<>) x y = not (equal x y)
 
-module SymbolOrd = struct
-  type t = sym
-  let compare = Pervasives.compare
+  let mk =
+    let tbl = Hashtbl.create (module String) in
+    let idx = ref (-1) in
+    fun key ->
+      match Hashtbl.find tbl key with
+      | Some id ->
+        { id; name = key }
+      | None ->
+        incr idx;
+        let data = !idx in
+        Hashtbl.add_exn tbl ~key ~data;
+        { id = data; name = key }
 end
+include T
 
 module Table = struct
-  include Map.Make(SymbolOrd)
+  include Map.Make (T)
 
-  let find_env env_name sym env =
-    match find_opt sym.L.value env with
-    | Some v ->
-      v
-    | None ->
-      id_error sym @@
-      Printf.sprintf "Unknown %s: %s"
-        env_name (name sym.L.value)
+  let not_found name sym v =
+    let msg = Printf.sprintf "Unknown %s: %s" name v in
+    id_error sym msg
+
+  let find_env name sym env =
+    match find env sym.L.value with
+    | Some v -> v
+    | None -> not_found name sym sym.L.value.name
 
   let find_var sym env = find_env "variable" sym env
   let find_fun sym env = find_env "function" sym env

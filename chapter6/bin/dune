@@ -1,3 +1,3 @@
 (executable
  (name driver)
- (libraries ch6 core stdio))
+ (libraries ch6 core))
