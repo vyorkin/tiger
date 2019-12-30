@@ -1,5 +1,5 @@
-open Err
 open Core_kernel
+open Err
 
 module S = Symbol
 
@@ -11,7 +11,7 @@ type t =
   | Nil
   | Unit
   | Name of S.t * t option ref
-  [@@deriving eq, show]
+[@@deriving eq, show]
 
 (** Recursively lookups the underlying type *)
 let rec actual = function

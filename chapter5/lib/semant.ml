@@ -103,7 +103,7 @@ and trans_expr venv tenv expr =
   and tr_assign var expr =
     let { ty = var_ty; _ } = tr_var var in
     let { ty = expr_ty; _ } = tr_expr expr in
-    if var_ty = expr_ty
+    if T.(var_ty = expr_ty)
     then mk_ty var_ty
     else type_error expr @@ sprintf
         "invalid assigment of type \"%s\" to a variable of type \"%s\""
@@ -127,7 +127,7 @@ and trans_expr venv tenv expr =
       (* If there is a false-branch then we should
          check if types of both branches match *)
       let { ty = f_ty; _ } = tr_expr f in
-      if t_ty = f_ty
+      if T.(t_ty = f_ty)
       then mk_ty t_ty
       else type_error expr @@ sprintf
           "different types of branch expressions: \"%s\" and \"%s\""
@@ -155,7 +155,7 @@ and trans_expr venv tenv expr =
     trans_expr venv' tenv' body
   (* then the new environments are discarded *)
 
-  and tr_field rec_typ tfields (name, expr) =
+  and tr_record_field rec_typ tfields (name, expr) =
     (* find a type of the field with [name] *)
     match List.Assoc.find tfields ~equal:S.equal name.L.value with
     | Some tvn ->
@@ -175,7 +175,7 @@ and trans_expr venv tenv expr =
     | T.Record (tfields, _) ->
       (* we want to check each field of the variable
          against the corresponding record type definition *)
-      List.iter ~f:(tr_field rec_typ tfields) vfields;
+      List.iter ~f:(tr_record_field rec_typ tfields) vfields;
       mk_ty rec_typ
     | _ ->
       type_error ty_name @@ sprintf
@@ -307,7 +307,7 @@ and trans_funs venv tenv fs =
     let add_var e (name, t) = S.Table.add_exn e ~key:name ~data:(VarEntry t) in
     let venv'' = List.fold_left args ~init:venv' ~f:add_var in
     let { ty = body_ty; _ } = trans_expr venv'' tenv body in
-    if body_ty <> result
+    if T.(body_ty <> result)
     then type_mismatch_error4
         "type of the body expression doesn't match the declared result type, "
         body result body_ty; in

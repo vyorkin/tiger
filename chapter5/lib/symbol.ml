@@ -3,7 +3,6 @@ open Core_kernel
 
 module L = Location
 
-(* Symbol table item *)
 module T = struct
   type s = private int
 
@@ -30,7 +29,6 @@ module T = struct
 end
 include T
 
-(* Symbol table *)
 module Table = struct
   include Map.Make (T)
 
