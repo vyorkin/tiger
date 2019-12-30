@@ -4,8 +4,6 @@ open Core_kernel
 module L = Location
 
 module T = struct
-  type s = private int
-
   type t = {
     id : int;
     name : string;
