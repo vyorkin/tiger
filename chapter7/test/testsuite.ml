@@ -1,8 +1,8 @@
 open Core
 open Lexing
 open OUnit2
-open Ch6
-open Ch6.Lexer
+open Ch7
+open Ch7.Lexer
 
 module Sys = Core.Sys
 module Filename = Core.Filename
