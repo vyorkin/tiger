@@ -1,5 +1,6 @@
+open Symbol
+
 module T = Type
-module Table = Symbol.Table
 
 type access
 

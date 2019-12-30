@@ -1,18 +1,23 @@
+open Core_kernel
+
 module L = Location
 
-type t [@@deriving show]
+(** Symbol table item *)
+type t = {
+  id : int;
+  name : string;
+} [@@deriving eq, show]
 
-val symbol : string -> t
-val id : t -> int
-val name : t -> string
+val mk : string -> t
 
-module SymbolOrd : Map.OrderedType
+val (=) : t -> t -> bool
+val (<>) : t -> t -> bool
 
+(** Symbol table *)
 module Table : sig
-  include Map.S with type key = t
+  include Map.S with type Key.t = t
 
-  val find_env : string -> key L.t -> 'a t -> 'a
-  val find_var : key L.t -> 'a t -> 'a
-  val find_fun : key L.t -> 'a t -> 'a
-  val find_ty  : key L.t -> 'a t -> 'a
+  val find_var : Key.t L.t -> 'a t -> 'a
+  val find_fun : Key.t L.t -> 'a t -> 'a
+  val find_ty  : Key.t L.t -> 'a t -> 'a
 end

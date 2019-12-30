@@ -11,5 +11,5 @@ type label [@@deriving show]
 val mk : unit -> t
 
 (** Returns a new [label], whose assembly-language name is
-    the given string (if given), otherwise it is generated. *)
+    the given string (if given), otherwise it is generated *)
 val mk_label : string option -> label

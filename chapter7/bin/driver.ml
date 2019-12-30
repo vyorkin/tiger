@@ -1,9 +1,9 @@
 open Core
 open Lexing
-open Ch7
-open Ch7.Lexer
-open Ch7.Syntax
-open Ch7.Semant
+open Ch6
+open Ch6.Lexer
+open Ch6.Syntax
+open Ch6.Semant
 
 let print_position outx lexbuf =
   let pos = lexbuf.lex_curr_p in
@@ -35,7 +35,7 @@ let run_parser filename () =
   In_channel.with_file filename ~f:(parse filename)
 
 let () =
-  let spec = Command.Spec.(empty +> anon ("filename" %: file)) in
+  let spec = Command.Spec.(empty +> anon ("filename" %: string)) in
   run_parser
   |> Command.basic_spec ~summary:"Run the parser" spec
   |> Command.run
