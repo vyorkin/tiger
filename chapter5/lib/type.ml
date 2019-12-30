@@ -22,6 +22,10 @@ let rec actual = function
     actual t
   | t -> t
 
+let (~!) x = actual x
+let (=) x y = equal x y
+let (<>) x y = not (equal x y)
+
 let rec to_string = function
   | Int -> "int"
   | String -> "string"

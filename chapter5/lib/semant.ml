@@ -1,5 +1,5 @@
-open Err
 open Core_kernel
+open Err
 
 module T = Type
 module L = Location
@@ -16,11 +16,14 @@ type expr_ty = {
 
 let mk_ty ty = { expr = (); ty }
 
-let type_mismatch_error msg l t1 t2 =
+let type_mismatch_error4 msg l t1 t2 =
   let msg' = sprintf
       "type \"%s\" is expected, but found \"%s\""
       (T.to_string t1) (T.to_string t2) in
   type_error l @@ msg ^ msg'
+
+let type_mismatch_error3 l t1 t2 =
+  type_mismatch_error4 "" l t1 t2
 
 let missing_field_error t name =
   id_error name @@ sprintf
@@ -35,9 +38,10 @@ and trans_expr venv tenv expr =
   let open Syntax in
 
   let rec assert_ty t expr =
+    let open T in
     let { ty; _ } = tr_expr expr in
-    if (T.actual ty) <> (T.actual t)
-    then type_mismatch_error "" expr t ty
+    if ~!ty <> ~!t
+    then type_mismatch_error3 expr t ty
 
   and assert_int expr = assert_ty T.Int expr
   and assert_unit expr = assert_ty T.Unit expr
@@ -73,7 +77,7 @@ and trans_expr venv tenv expr =
           "function \"%s\" expects %d formal arguments, but %d was given"
           (f.L.value.S.name) (List.length formals) (List.length args) ;
       List.iter2_exn formals args ~f:assert_ty;
-      mk_ty @@ T.actual result
+      T.(mk_ty ~!result)
 
   (* in our language binary operators work only with
      integer operands, except for (=) and (<>) *)
@@ -84,10 +88,11 @@ and trans_expr venv tenv expr =
       assert_op l r
 
   and assert_comparison expr l r =
+    let open T in
     let { ty = ty_l; _ } = tr_expr l in
     let { ty = ty_r; _ } = tr_expr r in
-    if (T.actual ty_l) <> (T.actual ty_r)
-    then type_mismatch_error "" expr ty_l ty_r;
+    if ~!ty_l <> ~!ty_r
+    then type_mismatch_error3 expr ty_l ty_r;
     mk_ty ty_l
 
   and assert_op l r =
@@ -150,43 +155,45 @@ and trans_expr venv tenv expr =
     trans_expr venv' tenv' body
   (* then the new environments are discarded *)
 
+  and tr_field rec_typ tfields (name, expr) =
+    (* find a type of the field with [name] *)
+    match List.Assoc.find tfields ~equal:S.equal name.L.value with
+    | Some tvn ->
+      let open T in
+      let { ty = tn; _ } = tr_expr expr in
+      let ty = ~!tn in
+      let tv = ~!tvn in
+      if ty <> tv then type_mismatch_error3 expr ty tv
+    | None ->
+      missing_field_error rec_typ name
+
   and tr_record ty_name vfields =
+    let open T in
     (* get the record type definition *)
     let rec_typ = S.Table.find_ty ty_name tenv in
-    match T.actual rec_typ with
+    match ~!rec_typ with
     | T.Record (tfields, _) ->
       (* we want to check each field of the variable
          against the corresponding record type definition *)
-      List.iter
-        ~f:(fun (name, expr) ->
-            (* find a type of the field with [name] *)
-            match List.Assoc.find tfields ~equal:S.equal name.L.value with
-            | Some tvn ->
-              let { ty = tn; _ } = tr_expr expr in
-              let ty = T.actual tn in
-              let tv = T.actual tvn in
-              if ty <> tv
-              then type_mismatch_error "" expr ty tv
-            | None -> missing_field_error rec_typ name
-          )
-        vfields;
+      List.iter ~f:(tr_field rec_typ tfields) vfields;
       mk_ty rec_typ
     | _ ->
       type_error ty_name @@ sprintf
         "\"%s\" is not a record" (T.to_string rec_typ)
 
   and tr_array typ size init =
+    let open T in
     assert_int size;
     let { ty = init_tn; _ } = tr_expr init in
     (* find the type of this particular array *)
     let arr_ty = S.Table.find_ty typ tenv in
-    match T.actual arr_ty with
+    match ~!arr_ty with
     | T.Array (tn, _) ->
-      let t = T.actual tn in
-      let init_t = T.actual init_tn in
+      let t = ~!tn in
+      let init_t = ~!init_tn in
       if t = init_t
       then mk_ty arr_ty
-      else type_mismatch_error
+      else type_mismatch_error4
           "invalid type of array initial value, " init t init_t
     | _ ->
       type_error typ @@ sprintf
@@ -204,7 +211,7 @@ and trans_expr venv tenv expr =
   and tr_simple_var var =
     match S.Table.find_var var venv with
     | Env.VarEntry tn ->
-      mk_ty @@ T.actual tn
+      T.(mk_ty ~!tn)
     | Env.FunEntry (formals, result) ->
       let signature =
         formals
@@ -224,7 +231,7 @@ and trans_expr venv tenv expr =
          lets try to find a type for the given [field],
          it is the type of the [FieldVar] expression  *)
       (match List.Assoc.find fields ~equal:S.equal field.L.value with
-       | Some tt -> mk_ty @@ T.actual tt
+       | Some tt -> T.(mk_ty ~!tt)
        | None -> missing_field_error rec_ty.ty field)
     | _ ->
       type_error var @@ sprintf
@@ -236,7 +243,7 @@ and trans_expr venv tenv expr =
     match arr_ty.ty with
     | Array (tn, _) ->
       assert_int sub;
-      mk_ty @@ T.actual tn
+      T.(mk_ty ~!tn)
     | _ ->
       type_error var @@ sprintf
         "\"%s\" is not an array" (T.to_string arr_ty.ty)
@@ -301,7 +308,7 @@ and trans_funs venv tenv fs =
     let venv'' = List.fold_left args ~init:venv' ~f:add_var in
     let { ty = body_ty; _ } = trans_expr venv'' tenv body in
     if body_ty <> result
-    then type_mismatch_error
+    then type_mismatch_error4
         "type of the body expression doesn't match the declared result type, "
         body result body_ty; in
   (* now, lets check the bodies *)
@@ -317,11 +324,12 @@ and trans_var venv tenv var =
   (match var_typ with
    | None -> ()
    | Some ann_ty ->
+     let open T in
      (* check if the init expression has the
         same type as the variable annotation *)
-     let var_ty = T.actual @@ S.Table.find_ty ann_ty tenv in
-     if var_ty <> (T.actual init_ty)
-     then type_mismatch_error "" init var_ty init_ty
+     let var_ty = ~!(S.Table.find_ty ann_ty tenv) in
+     if var_ty <> ~!init_ty
+     then type_mismatch_error3 init var_ty init_ty
   );
   let entry = Env.VarEntry init_ty in
   let venv' = S.Table.add_exn venv ~key:var_name.L.value ~data:entry in

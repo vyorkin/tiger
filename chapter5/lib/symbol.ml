@@ -5,10 +5,15 @@ module L = Location
 
 (* Symbol table item *)
 module T = struct
+  type s = private int
+
   type t = {
     id : int;
     name : string;
   } [@@deriving compare, eq, sexp, show { with_path = false }]
+
+  let (=) x y = equal x y
+  let (<>) x y = not (equal x y)
 
   let mk =
     let tbl = Hashtbl.create (module String) in
@@ -24,7 +29,6 @@ module T = struct
         { id = data; name = key }
 end
 include T
-include Comparator.Make(T)
 
 (* Symbol table *)
 module Table = struct

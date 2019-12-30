@@ -1,3 +1,5 @@
+open Core_kernel
+
 module L = Location
 
 type t =
