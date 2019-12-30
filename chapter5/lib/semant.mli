@@ -15,7 +15,12 @@ type expr_ty =
 val trans_prog : Syntax.expr -> unit
 
 (** Type-checks and translates the expression into intermediate code *)
-val trans_expr : venv -> tenv -> Syntax.expr Location.t -> expr_ty
+val trans_expr
+  :  venv
+  -> tenv
+  -> Syntax.expr Location.t
+  -> parents:Syntax.expr list
+  -> expr_ty
 
 (** Translates a AST type expression into
     a digested type description that we keed in the type-level environment *)

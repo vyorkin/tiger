@@ -32,9 +32,11 @@ let missing_field_error t name =
 
 let rec trans_prog expr =
   let open Env in
-  ignore @@ trans_expr base_venv base_tenv (L.dummy expr)
+  ignore @@ trans_expr base_venv base_tenv (L.dummy expr) ~parents:[]
 
-and trans_expr venv tenv expr =
+and trans_expr venv tenv expr ~parents =
+  let path = expr.L.value :: parents in
+
   let open Syntax in
 
   let rec assert_ty t expr =
@@ -149,10 +151,10 @@ and trans_expr venv tenv expr =
      type-level (tenv) and term-level (venv) environments *)
   and tr_let decs body =
     (* update env's according to declarations *)
-    let venv', tenv' = trans_decs venv tenv decs in
+    let venv', tenv' = trans_decs venv tenv decs ~parents:path in
     (* then translate the body expression using
        the new augmented environments *)
-    trans_expr venv' tenv' body
+    trans_expr venv' tenv' body ~parents:path
   (* then the new environments are discarded *)
 
   and tr_record_field rec_typ tfields (name, expr) =
@@ -250,17 +252,17 @@ and trans_expr venv tenv expr =
 
   in tr_expr expr
 
-and trans_decs venv tenv =
+and trans_decs venv tenv ~parents =
   List.fold_left
-    ~f:(fun (venv, tenv) dec -> trans_dec venv tenv dec)
+    ~f:(fun (venv, tenv) dec -> trans_dec venv tenv dec ~parents)
     ~init:(venv, tenv)
 
 (* modifies and returns term-level and
    type-level environments adding the given declaration *)
-and trans_dec venv tenv = function
+and trans_dec venv tenv ~parents = function
   | TypeDec tys -> trans_tys venv tenv tys
-  | FunDec fs -> trans_funs venv tenv fs
-  | VarDec var -> trans_var venv tenv var
+  | FunDec fs -> trans_funs venv tenv fs ~parents
+  | VarDec var -> trans_var venv tenv var ~parents
 
 and trans_tys venv tenv tys =
   let open Syntax in
@@ -281,7 +283,7 @@ and trans_tys venv tenv tys =
   List.iter2_exn (List.rev tns) tys ~f:resolve_ty;
   venv, tenv'
 
-and trans_funs venv tenv fs =
+and trans_funs venv tenv fs ~parents =
   let open Syntax in
   let open Env in
   let tr_fun_head (sigs, venv) fun_dec =
@@ -306,7 +308,7 @@ and trans_funs venv tenv fs =
        it should have all the arguments in it *)
     let add_var e (name, t) = S.Table.add_exn e ~key:name ~data:(VarEntry t) in
     let venv'' = List.fold_left args ~init:venv' ~f:add_var in
-    let { ty = body_ty; _ } = trans_expr venv'' tenv body in
+    let { ty = body_ty; _ } = trans_expr venv'' tenv body ~parents in
     if T.(body_ty <> result)
     then type_mismatch_error4
         "type of the body expression doesn't match the declared result type, "
@@ -315,10 +317,10 @@ and trans_funs venv tenv fs =
   List.iter2_exn (List.rev sigs) fs ~f:assert_fun_body;
   venv', tenv
 
-and trans_var venv tenv var =
+and trans_var venv tenv var ~parents =
   let open Syntax in
   let { var_name; var_typ; init; _ } = var.L.value in
-  let { ty = init_ty; _ } = trans_expr venv tenv init in
+  let { ty = init_ty; _ } = trans_expr venv tenv init ~parents in
 
   (* lets see if the variable is annotated *)
   (match var_typ with
