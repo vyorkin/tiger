@@ -20,6 +20,7 @@ val trans_expr
   :  venv
   -> tenv
   -> Syntax.expr Location.t
+  -> trace:((Syntax.expr Location.t) list)
   -> expr_ty
 
 (** Translates a AST type expression into
