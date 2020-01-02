@@ -14,7 +14,8 @@ let parse_with_error lexbuf =
   try
     let expr = Parser.main Lexer.read lexbuf in
     Printf.printf "%s\n" (show_expr expr);
-    trans_prog expr;
+    let params = { trace = true } in
+    trans_prog expr ~params;
   with
   | LexingError msg ->
     fprintf stderr "%a: lexing error%s\n" print_position lexbuf msg |> ignore

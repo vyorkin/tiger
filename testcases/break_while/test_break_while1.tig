@@ -1,0 +1,8 @@
+/* Should fail: [break] in "cond" (seq) is prohibited */
+while (break; 5) do (
+  let
+    var x := 0
+   in
+    break
+  end
+)

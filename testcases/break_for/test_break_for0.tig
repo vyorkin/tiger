@@ -1,0 +1,8 @@
+for i := 0 to 5 do (
+  let
+    var x := 0
+    var y := x + 1
+   in
+     if y >= 1 then break
+  end
+)

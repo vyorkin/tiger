@@ -1,0 +1,2 @@
+/* Should fail: [break] in "hi" (seq) is prohibited */
+for i := 0 to (break; 5) do ()

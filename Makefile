@@ -6,7 +6,7 @@ build:
 	dune build
 
 test:
-	dune runtest
+	dune runtest -f
 
 utop:
 	dune utop --

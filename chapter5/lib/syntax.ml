@@ -101,3 +101,9 @@ and fun_dec = {
   body : expr L.t;
   result_typ : S.t L.t option;
 } [@@deriving show { with_path = false }]
+
+(* Test if the given expression is
+   either [while] or [for] loop *)
+let is_loop = function
+  | While _ | For _ -> true
+  | _ -> false

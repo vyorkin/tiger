@@ -7,7 +7,7 @@
 
 (library
  (name ch5)
- (libraries core stdio)
+ (libraries core logs)
  (preprocess (pps ppx_deriving.show ppx_deriving.eq ppx_compare ppx_sexp_conv)))
 
 (env (dev (flags (:standard -warn-error -A))))

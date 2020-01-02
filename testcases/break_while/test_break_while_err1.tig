@@ -1,0 +1,6 @@
+let
+  function main(a : int) =
+    if a > 5 then break
+ in
+   main(5)
+end

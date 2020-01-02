@@ -273,7 +273,7 @@ and trans_tys venv tenv tys =
     let sym = ty_dec.L.value.type_name.L.value in
     let tn = ref None in
     (* add a type-reference, without body *)
-    let tenv' = S.Table.add_exn tenv ~key:sym ~data:(T.Name (sym, tn)) in
+    let tenv' = S.Table.set tenv ~key:sym ~data:(T.Name (sym, tn)) in
     tn :: tns, tenv' in
   (* first, we add all the type names to the [tenv] *)
   let (tns, tenv') = List.fold_left tys ~init:([], tenv) ~f:tr_ty_head in
@@ -310,7 +310,7 @@ and trans_funs venv tenv lev fs =
     (* get types of the formal parameters *)
     let formals = List.map args ~f:snd in
     let entry = FunEntry { level; label; formals; result } in
-    let venv' = S.Table.add_exn venv ~key:fun_name.L.value ~data:entry in
+    let venv' = S.Table.set venv ~key:fun_name.L.value ~data:entry in
     (args, result) :: sigs, venv' in
 
   (* first, we add all the function entries to the [venv] *)
@@ -323,7 +323,7 @@ and trans_funs venv tenv lev fs =
       (* lets just assume that each variable escapes for now *)
       let access = Translate.alloc_local lev true in
       let entry = VarEntry { ty; access } in
-      S.Table.add_exn e ~key:name ~data:entry
+      S.Table.set e ~key:name ~data:entry
     in
     let venv'' = List.fold_left args ~f:add_var ~init:venv' in
     let { body; _ } = fun_dec.L.value in
@@ -355,7 +355,7 @@ and trans_var venv tenv lev var =
   end;
   let access = Translate.alloc_local lev true in
   let entry = Env.VarEntry { ty = init_ty; access } in
-  let venv' = S.Table.add_exn venv ~key:var_name.L.value ~data:entry in
+  let venv' = S.Table.set venv ~key:var_name.L.value ~data:entry in
   venv', tenv
 
 (* translates an AST type expression into a

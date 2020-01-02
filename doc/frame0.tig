@@ -1,0 +1,34 @@
+type tree = {
+  key: string,
+  left: tree,
+  right: tree
+}
+
+function prettyprint(tree: tree) : string =
+  let
+    var output := ""
+
+    function write(s: string) =
+      output := concat(output, s)
+
+    function show(n: int, t: tree) =            10
+      let
+        function indent(s: string) = (
+          for i := 1 to n do                    12
+             write(" ");                        13
+             output := concat(output, s);       14
+             write("\n")
+        )
+      in
+        if t = nil
+        then ident(".")                         15
+        else (
+          indent(t.key);
+          show(n + 1, t.left);                  17
+          show(n + 1, t.right)
+        )
+      end
+  in
+    show(0, tree);                              21
+    output
+  end

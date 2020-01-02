@@ -1,0 +1,9 @@
+while 1 do (
+  let
+    var x := 0
+    var y := x + 1
+   in
+    nil;
+    break
+  end
+)

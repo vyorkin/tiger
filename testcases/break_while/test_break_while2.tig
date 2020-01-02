@@ -1,0 +1,12 @@
+let
+  function main() =
+    while 1 do
+      let
+        function nested() =
+          break
+       in
+         nested()
+       end
+ in
+  main()
+end

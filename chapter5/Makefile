@@ -3,10 +3,10 @@
 default: exe
 
 exe:
-	dune exe bin/driver.exe -- ../book/testcases/test1.tig
+	dune exe bin/driver.exe -- ../testcases/test_break_for2.tig
 
 test:
-	dune runtest
+	dune runtest -f
 
 utop:
 	dune utop --
