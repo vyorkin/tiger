@@ -3,7 +3,7 @@
 default: exe
 
 exe:
-	dune exe bin/driver.exe -- ../testcases/test_break_for2.tig
+	dune exe bin/driver.exe -- ../testcases/break_for/test_break_for3.tig
 
 test:
 	dune runtest -f

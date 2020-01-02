@@ -1,43 +1,28 @@
 open Core
-open Lexing
 
 open Ch5
-open Lexer
 open Syntax
 open Semant
 
-let print_position outx lexbuf =
-  let pos = lexbuf.lex_curr_p in
-  let col = pos.pos_cnum - pos.pos_bol + 1 in
-  fprintf outx "%s:%d:%d" pos.pos_fname pos.pos_lnum col
-
-let parse_with_error lexbuf =
+let run fn ch =
+  let lexbuf = Lexbuf.mk fn ch in
   try
     let expr = Parser.main Lexer.read lexbuf in
     Printf.printf "%s\n" (show_expr expr);
-    let params = { trace = true } in
-    trans_prog expr ~params;
+    trans_prog expr ~params:{ trace = true };
   with
-  | LexingError msg ->
-    fprintf stderr "%a: lexing error%s\n" print_position lexbuf msg |> ignore
+  | Lexer.LexingError msg ->
+    Printf.eprintf "%s: lexing error%s\n" (Lexbuf.pos lexbuf) msg
   | Parser.Error ->
-    fprintf stderr "%a: syntax error\n" print_position lexbuf
+    Printf.eprintf "%s: syntax error\n" (Lexbuf.pos lexbuf)
   | Err.Error (err, loc, msg) ->
-    fprintf stderr "%s\n" (Err.to_string err loc msg);
-    exit (-1)
+    Printf.eprintf "%s\n" (Err.to_string err loc msg)
 
-let parse filename ch =
-  let lexbuf = Lexing.from_channel ch in
-  lexbuf.lex_curr_p <- {
-    lexbuf.lex_curr_p with pos_fname = filename
-  };
-  parse_with_error lexbuf
-
-let run_parser filename () =
-  In_channel.with_file filename ~f:(parse filename)
+let run_file fn () =
+  In_channel.with_file fn ~f:(run fn)
 
 let () =
   let spec = Command.Spec.(empty +> anon ("filename" %: string)) in
-  run_parser
+  run_file
   |> Command.basic_spec ~summary:"Run the parser" spec
   |> Command.run
