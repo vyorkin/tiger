@@ -3,8 +3,8 @@ open Core
 module Path = struct
   open Filename
 
-  let book = parent_dir_name ^/ "../../../book/testcases"
-  let main = parent_dir_name ^/ "../../../testcases"
+  let book = parent_dir_name ^/ "book/testcases"
+  let main = parent_dir_name ^/ "testcases"
 
   let mk dir = main ^/ dir
 end

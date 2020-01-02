@@ -6,7 +6,7 @@ exe:
 	dune exe bin/driver.exe -- ../testcases/break_for/test_break_for3.tig
 
 test:
-	dune runtest -f
+	dune exe ./test/testsuite.exe
 
 utop:
 	dune utop --
