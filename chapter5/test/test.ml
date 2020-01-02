@@ -2,9 +2,8 @@ open Core
 open Alcotest
 
 open Ch5
-open Ch5.Lexer
 
-let run_test fn ch =
+let run_file fn ch =
   let lexbuf = Lexbuf.mk fn ch in
   try
     lexbuf
@@ -12,7 +11,7 @@ let run_test fn ch =
     |> Semant.trans_prog ~params:{ trace = false };
     pass
   with
-  | LexingError msg ->
+  | Lexer.LexingError msg ->
     fail @@ Lexbuf.pos lexbuf ^ " : " ^ msg
   | Parser.Error ->
     fail @@ "Syntax error: " ^ Lexbuf.pos lexbuf
@@ -21,6 +20,6 @@ let run_test fn ch =
 
 let mk fn =
   let name = Filename.basename fn in
-  let run () = In_channel.with_file fn ~f:(run_test fn) in
+  let run () = In_channel.with_file fn ~f:(run_file fn) in
   let test () = check (run ()) name () () in
-  test_case fn `Quick test
+  test_case name `Quick test

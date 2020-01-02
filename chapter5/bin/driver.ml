@@ -1,9 +1,10 @@
 open Core
 open Lexing
+
 open Ch5
-open Ch5.Lexer
-open Ch5.Syntax
-open Ch5.Semant
+open Lexer
+open Syntax
+open Semant
 
 let print_position outx lexbuf =
   let pos = lexbuf.lex_curr_p in
