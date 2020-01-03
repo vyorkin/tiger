@@ -17,11 +17,11 @@ type source =
 let env_src = Logs.Src.create "tig.env" ~doc:"Symbol table"
 let semant_src = Logs.Src.create "tig.semant" ~doc:"Semantic analysis"
 
-let trace_env op name sym =
+let env_trace op name sym =
   Logs.debug ~src:env_src (fun m -> m "%s %s: %s" op name (S.to_string sym))
 
-let find_env name sym = trace_env "<==" name sym
-let set_env  name sym = trace_env "==>" name sym
+let env_bind name sym = env_trace "<==" name sym
+let env_look name sym = env_trace "==>" name sym
 
 let reporter ppf =
   (* [ppf] is our pretty-printing formatter

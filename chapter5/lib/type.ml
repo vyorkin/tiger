@@ -46,6 +46,9 @@ let assignable x y =
   | Record _, Nil -> true
   | a, b -> a = b
 
+let (@==) x y = assignable x y
+let (@<>) x y = not (assignable x y)
+
 let rec to_string x =
   let open Core_kernel in
   match x with
@@ -54,5 +57,5 @@ let rec to_string x =
   | Nil -> "nil"
   | Unit -> "()"
   | Name (s, _) -> s.name
-  | Array (t, u) -> sprintf "[%s]<%s>" (to_string t) (U.to_string u)
-  | Record (_, u) -> sprintf "record<%s>" (U.to_string u)
+  | Array (t, u) -> sprintf "[%s]<#%s>" (to_string t) (U.to_string u)
+  | Record (_, u) -> sprintf "record<#%s>" (U.to_string u)

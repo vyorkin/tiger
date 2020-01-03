@@ -14,7 +14,7 @@ type source =
 [@@deriving eq, show]
 
 (** Trace symbol table lookup *)
-val find_env : string -> S.t L.t -> unit
+val env_look : string -> S.t L.t -> unit
 
-(** Trace symbol table new binding *)
-val set_env : string -> S.t L.t -> unit
+(** Trace new symbol table binding *)
+val env_bind : string -> S.t L.t -> unit

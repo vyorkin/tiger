@@ -7,6 +7,9 @@ type t = {
 (** Make a new symbol *)
 val mk : string -> t
 
+(** Make a new unique symbol *)
+val mk_unique : string -> t
+
 val (=) : t -> t -> bool
 val (<>) : t -> t -> bool
 

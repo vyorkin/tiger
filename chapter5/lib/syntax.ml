@@ -49,7 +49,7 @@ type expr =
           expr L.t option (* else *)
   | While of expr L.t * (* condition *)
              expr L.t (* body *)
-  | For of S.t * (* iterator name *)
+  | For of S.t L.t * (* iterator name *)
            expr L.t * (* from *)
            expr L.t * (* to *)
            expr L.t * (* body *)
