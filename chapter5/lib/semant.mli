@@ -1,12 +1,5 @@
 module ST = Symbol_table
 
-module Ctx : sig
-  type t
-
-  val mk : unit -> t
-end
-
-
 (** Translated expression and its type *)
 type expr_ty =
   { expr : Translate.t;
@@ -19,7 +12,7 @@ val trans_prog : Syntax.expr -> unit
 
 (** Type-checks and translates the
     expression into intermediate code *)
-val trans_expr : Syntax.expr Location.t -> ctx:Ctx.t -> expr_ty
+val trans_expr : Syntax.expr Location.t -> env:Env.t -> expr_ty
 
 (** Translates a AST type expression into
     a digested type description that we keed in

@@ -13,8 +13,16 @@ type source =
   | Semant of target list
 [@@deriving eq, show]
 
-(** Trace symbol table lookup *)
-val env_look : string -> S.t L.t -> unit
+module Symbol : sig
+  (** Trace lookup *)
+  val look : string -> S.t L.t -> unit
 
-(** Trace new symbol table binding *)
-val env_bind : string -> S.t L.t -> unit
+  (** Trace new binding *)
+  val bind : string -> S.t L.t -> unit
+end
+
+(* module Semant : sig
+ *   val trans_prog : Syntax.expr L.t -> unit
+ *   val trans_expr : Syntax.expr L.t -> unit
+ *   val trnas_ty : Syntax.ty -> unit
+ * end *)

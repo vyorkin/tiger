@@ -14,14 +14,21 @@ type source =
 (* In the [logs] lib terminology "source" defines a
    named unit of logging whose reporting level can be set independently *)
 
-let env_src = Logs.Src.create "tig.env" ~doc:"Symbol table"
-let semant_src = Logs.Src.create "tig.semant" ~doc:"Semantic analysis"
+module Src = struct
+  let symbol = Logs.Src.create "tig.symbol" ~doc:"Symbol table"
+  let semant = Logs.Src.create "tig.semant" ~doc:"Semantic analysis"
+end
 
-let env_trace op name sym =
-  Logs.debug ~src:env_src (fun m -> m "%s %s: %s" op name (S.to_string sym))
+module Symbol = struct
+  let trace op name sym =
+    Logs.debug ~src:Src.symbol (fun m -> m "%s %s: %s" op name (S.to_string sym))
 
-let env_bind name sym = env_trace "<==" name sym
-let env_look name sym = env_trace "==>" name sym
+  let bind name sym = trace "<==" name sym
+  let look name sym = trace "==>" name sym
+end
+
+(* module Semant = struct
+ * end *)
 
 let reporter ppf =
   (* [ppf] is our pretty-printing formatter
