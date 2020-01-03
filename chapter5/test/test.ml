@@ -8,7 +8,7 @@ let run_file fn ch =
   try
     lexbuf
     |> Parser.main Lexer.read
-    |> Semant.trans_prog ~params:{ trace = false };
+    |> Semant.trans_prog;
     pass
   with
   | Lexer.LexingError msg ->

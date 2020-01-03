@@ -1,5 +1,5 @@
-type t =
-  { trace: Trace.t
-  }
+type t = {
+  trace_sources: Trace.source list;
+}
 
-val setup : unit -> unit
+val setup : t -> unit

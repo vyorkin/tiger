@@ -1,4 +1,5 @@
 module S = Symbol
+module ST = Symbol_table
 module T = Type
 
 type access
@@ -8,10 +9,15 @@ type entry =
   | FunEntry of
       T.t list * (* types of the formal parameters *)
       T.t (* type of the result returned by the function (or unit) *)
+  [@@deriving show { with_path = false }]
 
-let base_venv = S.Table.empty
+type venv = entry ST.t
+type tenv = T.t ST.t
+
+let base_venv = ST.empty
 
 let base_tenv =
-  S.Table.empty
-  |> S.Table.add_exn ~key:(S.mk "string") ~data:T.String
-  |> S.Table.add_exn ~key:(S.mk "int") ~data:T.Int
+  let open ST in
+  empty
+  |> add_exn ~key:(S.mk "string") ~data:T.String
+  |> add_exn ~key:(S.mk "int") ~data:T.Int

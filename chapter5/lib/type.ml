@@ -1,12 +1,11 @@
-open Err
-
+module U = Unique
 module S = Symbol
 
 type t =
   | Int
   | String
-  | Record of (S.t * t) list * Unique.t
-  | Array of t * Unique.t
+  | Record of (S.t * t) list * U.t
+  | Array of t * U.t
   | Nil
   | Unit
   | Name of S.t * t option ref
@@ -24,15 +23,15 @@ let compare x y =
   | Array (_, u1), Array (_, u2) ->
     compare u1 u2
   | Name (sx, _), Name (sy, _) ->
-    S.(compare sx.id sy.id)
+    S.(compare sx sy)
   | x, y ->
     compare x y
 
 (** Recursively lookups the underlying type *)
 let rec actual = function
   | Name (sym, { contents = None }) ->
-    type_error (Location.dummy sym) @@ Printf.sprintf
-      "type %s is undefined" sym.name
+    Err.type_error (Location.dummy sym) @@
+    Printf.sprintf "type %s is undefined" sym.name
   | Name (_, { contents = Some t }) ->
     actual t
   | t -> t
@@ -55,5 +54,5 @@ let rec to_string x =
   | Nil -> "nil"
   | Unit -> "()"
   | Name (s, _) -> s.name
-  | Array (t, u) -> sprintf "[%s]<%s>" (to_string t) (Unique.to_string u)
-  | Record (_, u) -> sprintf "record<%s>" (Unique.to_string u)
+  | Array (t, u) -> sprintf "[%s]<%s>" (to_string t) (U.to_string u)
+  | Record (_, u) -> sprintf "record<%s>" (U.to_string u)
