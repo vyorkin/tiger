@@ -25,8 +25,13 @@ let book_examples =
   let included = ["merge.tig"; "queens.tig"] in
   Group.make "book examples" ~path:Path.book ~included
 
-let break_for = Group.make "break for" ~path:(Path.mk "break_for")
-let break_while = Group.make "break while" ~path:(Path.mk "break_while")
+let break_for =
+  let excluded = ["fail_hi.tig"; "fail_lo.tig"] in
+  Group.make "break for" ~path:(Path.mk "break_for") ~excluded
+
+let break_while =
+  let excluded = ["fail_cond.tig"; "fail_let.tig"; "fail_outer.tig"] in
+  Group.make "break while" ~path:(Path.mk "break_while") ~excluded
 
 let all = [
   book_tests;

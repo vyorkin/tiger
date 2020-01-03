@@ -9,9 +9,13 @@ module ST = Symbol_table
 
 module Ctx = struct
   type t = {
+    (* Type-level environemnt *)
     tenv : Env.tenv;
+    (* Term-level environment *)
     venv : Env.venv;
+    (* AST traversal path *)
     path : (Syntax.expr L.t) list;
+    (* Loop marker *)
     loop : S.t option;
   }
 
@@ -21,6 +25,9 @@ module Ctx = struct
     path = [];
     loop = None;
   }
+
+  let enter_loop ctx name =
+    { ctx with loop = Some (S.mk_unique name) }
 end
 
 type expr_ty =
@@ -64,7 +71,7 @@ and trans_expr expr ~ctx =
   and assert_unit expr ~ctx = assert_ty T.Unit expr ~ctx
 
   and tr_expr expr ~ctx =
-    (* push the current [expr] to the [path] stack *)
+    (* Push the current [expr] to the [path] stack *)
     let ctx = { ctx with path = expr :: ctx.path } in
     match expr.L.value with
     | Var var -> tr_var var ~ctx
@@ -89,9 +96,9 @@ and trans_expr expr ~ctx =
      *     let expr_str = Syntax.show_expr node.L.value in
      *     print_endline @@ sprintf "\n[%d]:\n\t%s\n" idx expr_str); *)
 
-    let is_loop expr = Syntax.is_loop expr.L.value in
-    match List.find ctx.path ~f:is_loop with
+    match ctx.loop with
     | Some _ ->
+      (* TODO: Trace breaking the loop *)
       ret_unit
     | None ->
       syntax_error br "unexpected break statement"
@@ -103,7 +110,7 @@ and trans_expr expr ~ctx =
         "expected function, but found variable \"%s\" of type \"%s\""
         (f.L.value.S.name) (T.to_string t)
     | Env.FunEntry (formals, result) ->
-      (* check if all the arguments are supplied *)
+      (* Check if all the arguments are supplied *)
       if List.length formals <> List.length args then
         type_error f @@ sprintf
           "function \"%s\" expects %d formal arguments, but %d was given"
@@ -111,7 +118,7 @@ and trans_expr expr ~ctx =
       List.iter2_exn formals args ~f:(assert_ty ~ctx);
       T.(ret ~!result)
 
-  (* in our language binary operators work only with
+  (* In our language binary operators work only with
      integer operands, except for (=) and (<>) *)
   and tr_op expr l r ~ctx = function
     | Syntax.Eq | Syntax.Neq ->
@@ -120,10 +127,9 @@ and trans_expr expr ~ctx =
       assert_op l r ~ctx
 
   and assert_comparison expr l r ~ctx =
-    let open T in
     let { ty = ty_l; _ } = tr_expr l ~ctx in
     let { ty = ty_r; _ } = tr_expr r ~ctx in
-    if ~!ty_l <> ~!ty_r
+    if T.(~!ty_l <> ~!ty_r)
     then type_mismatch_error3 expr ty_l ty_r;
     ret ty_l
 
@@ -141,7 +147,7 @@ and trans_expr expr ~ctx =
         "invalid assigment of type \"%s\" to a variable of type \"%s\""
         (T.to_string expr_ty) (T.to_string var_ty)
 
-  (* type of a sequence is a type of its last expression,
+  (* Type of a sequence is a type of its last expression,
      but we need to check all previous expressions too *)
   and tr_seq exprs ~ctx =
     List.fold_left
@@ -167,31 +173,32 @@ and trans_expr expr ~ctx =
 
   and tr_while cond body ~ctx =
     assert_int cond ~ctx;
-    assert_unit body ~ctx;
+    assert_unit body ~ctx:(Ctx.enter_loop ctx "while");
     ret_unit
 
   and tr_for var lo hi body ~ctx =
     assert_int lo ~ctx;
     assert_int hi ~ctx;
-    (* add iterator var to the term-level env  *)
-    let venv' = ST.bind_var ctx.venv var (Env.VarEntry T.Int) in
-    let ctx = { ctx with venv = venv'; loop = Some (S.mk_unique "for_loop") } in
+    (* Add iterator var to the term-level env  *)
+    let entry = Env.VarEntry T.Int in
+    let venv' = ST.bind_var ctx.venv var entry in
+    let ctx = Ctx.enter_loop { ctx with venv = venv' } "for" in
     assert_unit body ~ctx;
     ret_unit
 
-  (* in Tiger declarations appear only in a "let" expression,
+  (* In Tiger declarations appear only in a "let" expression,
      the let expression modifies both:
      type-level (tenv) and term-level (venv) environments *)
   and tr_let decs body ~ctx =
-    (* update env's according to declarations *)
+    (* Update env's according to declarations *)
     let ctx' = trans_decs decs ~ctx in
-    (* then translate the body expression using
+    (* Then translate the body expression using
        the new augmented environments *)
     trans_expr body ~ctx:ctx'
-  (* then the new environments are discarded *)
+  (* Then the new environments are discarded *)
 
   and tr_record_field rec_typ tfields (name, expr) ~ctx =
-    (* find a type of the field with [name] *)
+    (* Find a type of the field with [name] *)
     match List.Assoc.find tfields ~equal:S.equal name.L.value with
     | Some ty_field ->
       let { ty = ty_expr; _ } = tr_expr expr ~ctx in
@@ -202,11 +209,11 @@ and trans_expr expr ~ctx =
 
   and tr_record ty_name vfields ~ctx =
     let open T in
-    (* get the record type definition *)
+    (* Get the record type definition *)
     let rec_typ = ST.look_typ ctx.tenv ty_name in
     match ~!rec_typ with
     | T.Record (tfields, _) ->
-      (* we want to check each field of the variable
+      (* We want to check each field of the variable
          against the corresponding record type definition *)
       List.iter ~f:(tr_record_field rec_typ tfields ~ctx) vfields;
       ret rec_typ
@@ -218,7 +225,7 @@ and trans_expr expr ~ctx =
     let open T in
     assert_int size ~ctx;
     let { ty = init_tn; _ } = tr_expr init ~ctx in
-    (* find the type of this particular array *)
+    (* Find the type of this particular array *)
     let arr_ty = ST.look_typ ctx.tenv typ in
     match ~!arr_ty with
     | T.Array (tn, _) ->
@@ -255,14 +262,14 @@ and trans_expr expr ~ctx =
         signature (T.to_string result)
 
   and tr_field_var var field ~ctx =
-    (* TODO: check for "nil" *)
+    (* TODO: Check for "nil" *)
 
-    (* find a type of the record variable *)
+    (* Find a type of the record variable *)
     let rec_ty = tr_var var ~ctx in
-    (* lets see if its actually a record *)
+    (* Lets see if its actually a record *)
     match rec_ty.ty with
     | Record (fields, _) ->
-      (* record is just a list of pairs [S.t * Type.t],
+      (* Record is just a list of pairs [S.t * Type.t],
          lets try to find a type for the given [field],
          it is the type of the [FieldVar] expression  *)
       (match List.Assoc.find fields ~equal:S.equal field.L.value with
@@ -290,7 +297,7 @@ and trans_decs ~ctx =
     ~f:(fun ctx dec -> trans_dec dec ~ctx)
     ~init:ctx
 
-(* modifies and returns term-level and
+(* Modifies and returns term-level and
    type-level environments adding the given declaration *)
 and trans_dec ~ctx = function
   | TypeDec tys -> trans_tys tys ~ctx
@@ -302,17 +309,17 @@ and trans_tys tys ~ctx =
   let tr_ty_head (tns, tenv) ty_dec =
     let typ = ty_dec.L.value.type_name in
     let tn = ref None in
-    (* add a type-reference, without body *)
+    (* Add a type-reference, without body *)
     let tenv' = ST.bind_typ tenv typ (T.Name (typ.L.value, tn)) in
     tn :: tns, tenv' in
-  (* first, we add all the type names to the [tenv] *)
+  (* First, we add all the type names to the [tenv] *)
   let (tns, tenv') = List.fold_left tys ~init:([], ctx.tenv) ~f:tr_ty_head in
   let resolve_ty tn ty_dec =
     let { typ; _ } = ty_dec.L.value in
-    (* resolve the type body *)
+    (* Resolve the type body *)
     let t = trans_ty tenv' typ in
     tn := Some t in
-  (* resolve the (possibly mutually recursive) types *)
+  (* Resolve the (possibly mutually recursive) types *)
   List.iter2_exn (List.rev tns) tys ~f:resolve_ty;
   { ctx with tenv = tenv' }
 
@@ -321,22 +328,22 @@ and trans_funs fs ~ctx =
   let open Env in
   let tr_fun_head (sigs, venv) fun_dec =
     let { fun_name; params; result_typ; _ } = fun_dec.L.value in
-    (* translate function arguments *)
+    (* Translate function arguments *)
     let tr_arg f = f.name, ST.look_typ ctx.tenv f.typ in
     let args = List.map params ~f:tr_arg in
     let formals = List.map args ~f:snd in
-    (* translate the result type *)
+    (* Translate the result type *)
     let result = match result_typ with
       | None -> T.Unit
       | Some t -> ST.look_typ ctx.tenv t in
     let entry = FunEntry (formals, result) in
     let venv' = ST.bind_fun venv fun_name entry in
     (args, result) :: sigs, venv' in
-  (* first, we add all the function entries to the [venv] *)
+  (* First, we add all the function entries to the [venv] *)
   let (sigs, venv') = List.fold_left fs ~f:tr_fun_head ~init:([], ctx.venv) in
   let assert_fun_body (args, result) fun_dec =
     let { body; _ } = fun_dec.L.value in
-    (* now, lets build another [venv''] to be used for body processing
+    (* Here, we build another [venv''] to be used for body processing
        it should have all the arguments in it *)
     let add_var e (name, t) = ST.bind_var e name (VarEntry t) in
     let venv'' = List.fold_left args ~init:venv' ~f:add_var in
@@ -346,7 +353,7 @@ and trans_funs fs ~ctx =
     then type_mismatch_error4
         "type of the body expression doesn't match the declared result type, "
         body result body_ty; in
-  (* now, lets check the bodies *)
+  (* Now, lets check the bodies *)
   List.iter2_exn (List.rev sigs) fs ~f:assert_fun_body;
   { ctx with venv = venv' }
 
@@ -354,11 +361,11 @@ and assert_init var init_ty ~ctx =
   let open Syntax in
   let open Ctx in
   let { var_typ; init; _ } = var.L.value in
-  (* lets see if the variable is annotated *)
+  (* Lets see if the variable is annotated *)
   match var_typ with
   | None -> ()
   | Some ann_ty ->
-    (* check if the init expression has the
+    (* Check if the init expression has the
        same type as the variable annotation *)
     let var_ty = ST.look_typ ctx.tenv ann_ty in
     if T.(var_ty @<> init_ty)
@@ -369,12 +376,12 @@ and trans_var var ~ctx =
   let { var_name; init; _ } = var.L.value in
   let { ty = init_ty; _ } = trans_expr init ~ctx in
   assert_init var init_ty ~ctx;
-  (* add a new var to the term-level env *)
+  (* Add a new var to the term-level env *)
   let entry = Env.VarEntry init_ty in
   let venv' = ST.bind_var ctx.venv var_name entry in
   { ctx with venv = venv' }
 
-(* translates AST type expression into a
+(* Translates AST type expression into a
    digested type description that we keep in the [tenv] *)
 and trans_ty tenv typ =
   let open Syntax in
@@ -384,7 +391,7 @@ and trans_ty tenv typ =
   | RecordTy dec_fields ->
     let to_field { name; typ; _ } =
       name.L.value, ST.look_typ tenv typ in
-    let ty_fields = List.map dec_fields ~f:to_field  in
+    let ty_fields = List.map dec_fields ~f:to_field in
     T.Record (ty_fields, U.mk ())
   | ArrayTy t ->
     T.Array (ST.look_typ tenv t, U.mk ())
