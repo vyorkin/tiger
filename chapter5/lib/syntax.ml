@@ -116,26 +116,37 @@ module Printer = struct
     | Nil _ ->
       "()"
     | Int x ->
-      sprintf "%s : int" (Int.to_string x.L.value)
+      print_int x
     | String s ->
-      sprintf "\"%s\" : string" s.L.value
+      print_string s
     | Call (f, args) ->
       print_call f args
     | Op (l, op, r) ->
       print_op l r op.L.value
-    | Record _ ->
-      "[record]"
-    | Seq _ ->
-      "[seq]"
-    | Assign _ ->
-      "[assign]"
-    | If _ ->
-      "[if]"
-    | While _ -> "[while]"
-    | For _ -> "[for]"
-    | Break _ -> "[break]"
-    | Let _ -> "[let]"
-    | Array _ -> "[array]"
+    | Record (ty_name, vfields) ->
+      print_record ty_name vfields
+    | Seq exprs ->
+      print_seq exprs
+    | Assign (var, expr) ->
+      print_assign var expr
+    | If (cond, t, f) ->
+      print_cond cond t f
+    | While (cond, body) ->
+      print_while cond body
+    | For (var, lo, hi, body, _) ->
+      print_for var lo hi body
+    | Break br ->
+      print_break br
+    | Let (decs, body) ->
+      print_let decs body
+    | Array (typ, size, init) ->
+      print_array typ size init
+
+  and print_int x =
+    sprintf "%s : int" (Int.to_string x.L.value)
+
+  and print_string s =
+    sprintf "\"%s\" : string" s.L.value
 
   and print_op l r op =
     sprintf "%s %s %s"
@@ -194,7 +205,33 @@ module Printer = struct
 
   and print_fun_dec _ = ""
 
+  and print_seq exprs =
+    sprintf "(%d)" (List.length exprs)
+
+  and print_assign var expr =
+    ""
+
+  and print_record ty_name vfields =
+    ""
+
+  and print_cond cond t f =
+    ""
+
+  and print_while cond body =
+    ""
+
+  and print_for var lo hi body =
+    ""
+
+  and print_break br =
+    ""
+
+  and print_let decs body =
+    ""
+
+  and print_array typ size init =
+    "[array]"
+
   and print_symbol sym =
     sprintf "%s <#%d>" sym.L.value.S.name sym.L.value.id
-
 end
