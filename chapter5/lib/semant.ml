@@ -12,7 +12,10 @@ type expr_ty =
     ty : T.t;
   }
 
-let ret ty = { expr = (); ty }
+let ret ty =
+  Trace.Semant.ret_ty ty;
+  { expr = (); ty }
+
 let ret_int = ret T.Int
 let ret_string = ret T.String
 let ret_nil = ret T.Nil
@@ -33,7 +36,7 @@ let missing_field_error t name =
     (T.to_string t) (name.L.value.S.name)
 
 let rec trans_prog expr =
-  (* Trace.Semant.trans_prog expr; *)
+  Trace.Semant.trans_prog expr;
   ignore @@ trans_expr (L.dummy expr) ~env:(Env.mk ())
 
 and trans_expr expr ~env =
@@ -41,6 +44,7 @@ and trans_expr expr ~env =
   let open Env in
 
   let rec assert_ty t expr ~env =
+    Trace.Semant.assert_ty t expr;
     let { ty; _ } = tr_expr expr ~env in
     if T.(~!ty <> ~!t)
     then type_mismatch_error3 expr t ty
@@ -49,6 +53,7 @@ and trans_expr expr ~env =
   and assert_unit expr ~env = assert_ty T.Unit expr ~env
 
   and tr_expr expr ~env =
+    Trace.Semant.tr_expr expr;
     (* Push the current [expr] to the [path] stack *)
     let env = Env.enter_expr env expr in
     match expr.L.value with
@@ -70,11 +75,7 @@ and trans_expr expr ~env =
     | Array (ty, size, init) -> tr_array ty size init ~env
 
   and tr_break br ~env =
-    (* TODO: Use [Trace] module instead *)
-    (* List.iteri env.path ~f:(fun idx node ->
-     *     let expr_str = Syntax.show_expr node.L.value in
-     *     print_endline @@ sprintf "\n[%d]:\n\t%s\n" idx expr_str); *)
-
+    Trace.Semant.tr_break br env.loop;
     match env.loop with
     | Some _ ->
       (* TODO: Trace breaking the loop *)
@@ -83,6 +84,7 @@ and trans_expr expr ~env =
       syntax_error br "unexpected break statement"
 
   and tr_call f args ~env =
+    Trace.Semant.tr_call f args;
     match ST.look_fun env.venv f with
     | Env.VarEntry t ->
       type_error f @@ sprintf
@@ -99,7 +101,9 @@ and trans_expr expr ~env =
 
   (* In our language binary operators work only with
      integer operands, except for (=) and (<>) *)
-  and tr_op expr l r ~env = function
+  and tr_op expr l r op ~env =
+    Trace.Semant.tr_op expr l r op;
+    match op with
     | Syntax.Eq | Syntax.Neq ->
       assert_comparison expr l r ~env
     | _ ->
@@ -118,6 +122,7 @@ and trans_expr expr ~env =
     ret_int
 
   and tr_assign var expr ~env =
+    Trace.Semant.tr_assign var expr;
     let { ty = var_ty; _ } = tr_var var ~env in
     let { ty = expr_ty; _ } = tr_expr expr ~env in
     if T.(var_ty = expr_ty)
@@ -129,12 +134,14 @@ and trans_expr expr ~env =
   (* Type of a sequence is a type of its last expression,
      but we need to check all previous expressions too *)
   and tr_seq exprs ~env =
+    Trace.Semant.tr_seq exprs;
     List.fold_left
       ~f:(fun _ expr -> tr_expr expr ~env)
       ~init:ret_unit
       exprs
 
   and tr_cond cond t f ~env =
+    Trace.Semant.tr_cond cond t f;
     assert_int cond ~env;
     let { ty = t_ty; _ } = tr_expr t ~env in
     match f with
@@ -151,11 +158,13 @@ and trans_expr expr ~env =
           (T.to_string t_ty) (T.to_string f_ty)
 
   and tr_while cond body ~env =
+    Trace.Semant.tr_while cond body;
     assert_int cond ~env;
     assert_unit body ~env:(Env.enter_loop env "while");
     ret_unit
 
   and tr_for var lo hi body ~env =
+    Trace.Semant.tr_for var lo hi body;
     assert_int lo ~env;
     assert_int hi ~env;
     (* Add iterator var to the term-level env  *)
@@ -169,6 +178,7 @@ and trans_expr expr ~env =
      the let expression modifies both:
      type-level (tenv) and term-level (venv) environments *)
   and tr_let decs body ~env =
+    Trace.Semant.tr_let decs body;
     (* Update env's according to declarations *)
     let env' = trans_decs decs ~env in
     (* Then translate the body expression using
@@ -177,6 +187,7 @@ and trans_expr expr ~env =
   (* Then the new environments are discarded *)
 
   and tr_record_field rec_typ tfields (name, expr) ~env =
+    Trace.Semant.tr_record_field rec_typ name expr;
     (* Find a type of the field with [name] *)
     match List.Assoc.find tfields ~equal:S.equal name.L.value with
     | Some ty_field ->
@@ -188,6 +199,7 @@ and trans_expr expr ~env =
 
   and tr_record ty_name vfields ~env =
     let open T in
+    Trace.Semant.tr_record ty_name vfields;
     (* Get the record type definition *)
     let rec_typ = ST.look_typ env.tenv ty_name in
     match ~!rec_typ with
@@ -202,6 +214,7 @@ and trans_expr expr ~env =
 
   and tr_array typ size init ~env =
     let open T in
+    Trace.Semant.tr_array typ size init;
     assert_int size ~env;
     let { ty = init_tn; _ } = tr_expr init ~env in
     (* Find the type of this particular array *)
@@ -219,6 +232,7 @@ and trans_expr expr ~env =
         "\"%s\" is not array" (T.to_string arr_ty)
 
   and tr_var var ~env =
+    Trace.Semant.tr_var var;
     match var.L.value with
     | SimpleVar var ->
       tr_simple_var var ~env
@@ -228,6 +242,7 @@ and trans_expr expr ~env =
       tr_subscript_var var sub ~env
 
   and tr_simple_var var ~env =
+    Trace.Semant.tr_simple_var var;
     match ST.look_var env.venv var with
     | Env.VarEntry tn ->
       T.(ret ~!tn)
@@ -241,6 +256,7 @@ and trans_expr expr ~env =
         signature (T.to_string result)
 
   and tr_field_var var field ~env =
+    Trace.Semant.tr_field_var var field;
     (* TODO: Check for "nil" *)
 
     (* Find a type of the record variable *)
@@ -260,6 +276,7 @@ and trans_expr expr ~env =
         (T.to_string rec_ty.ty)
 
   and tr_subscript_var var sub ~env =
+    Trace.Semant.tr_subscript_var var sub;
     let arr_ty = tr_var var ~env in
     match arr_ty.ty with
     | Array (tn, _) ->
@@ -269,9 +286,12 @@ and trans_expr expr ~env =
       type_error var @@ sprintf
         "\"%s\" is not an array" (T.to_string arr_ty.ty)
 
-  in tr_expr expr ~env
+  in
+  Trace.Semant.trans_expr expr;
+  tr_expr expr ~env
 
 and trans_decs decs ~env =
+  Trace.Semant.trans_decs decs;
   List.fold_left decs
     ~f:(fun env dec -> trans_dec dec ~env)
     ~init:env
@@ -297,7 +317,9 @@ and trans_tys tys ~env =
     let { typ; _ } = ty_dec.L.value in
     (* Resolve the type body *)
     let t = trans_ty tenv' typ in
-    tn := Some t in
+    tn := Some t
+  in
+  Trace.Semant.trans_tys tys;
   (* Resolve the (possibly mutually recursive) types *)
   List.iter2_exn (List.rev tns) tys ~f:resolve_ty;
   { env with tenv = tenv' }
@@ -306,6 +328,7 @@ and trans_funs fs ~env =
   let open Syntax in
   let open Env in
   let tr_fun_head (sigs, venv) fun_dec =
+    Trace.Semant.trans_fun_head fun_dec;
     let { fun_name; params; result_typ; _ } = fun_dec.L.value in
     (* Translate function arguments *)
     let tr_arg f = f.name, ST.look_typ env.tenv f.typ in
@@ -321,6 +344,7 @@ and trans_funs fs ~env =
   (* First, we add all the function entries to the [venv] *)
   let (sigs, venv') = List.fold_left fs ~f:tr_fun_head ~init:([], env.venv) in
   let assert_fun_body (args, result) fun_dec =
+    Trace.Semant.assert_fun_body fun_dec result;
     let { body; _ } = fun_dec.L.value in
     (* Here, we build another [venv''] to be used for body processing
        it should have all the arguments in it *)
@@ -333,6 +357,7 @@ and trans_funs fs ~env =
         "type of the body expression doesn't match the declared result type, "
         body result body_ty;
   in
+  Trace.Semant.trans_funs fs;
   (* Now, lets check the bodies *)
   List.iter2_exn (List.rev sigs) fs ~f:assert_fun_body;
   { env with venv = venv' }
@@ -353,6 +378,7 @@ and assert_init var init_ty ~env =
 
 and trans_var var ~env =
   let open Syntax in
+  Trace.Semant.trans_var var;
   let { var_name; init; _ } = var.L.value in
   let { ty = init_ty; _ } = trans_expr init ~env in
   assert_init var init_ty ~env;
@@ -365,6 +391,7 @@ and trans_var var ~env =
    digested type description that we keep in the [tenv] *)
 and trans_ty tenv typ =
   let open Syntax in
+  Trace.Semant.trans_ty typ;
   match typ with
   | NameTy t ->
     ST.look_typ tenv t

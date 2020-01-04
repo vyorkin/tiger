@@ -30,6 +30,10 @@ module Semant = struct
 
   let trace = Logs.debug ~src
 
+  (* List.iteri env.path ~f:(fun idx node ->
+   *     let expr_str = Syntax.show_expr node.L.value in
+   *     print_endline @@ sprintf "\n[%d]:\n\t%s\n" idx expr_str); *)
+
   let trans_prog expr = ()
   let trans_expr expr = ()
   let trans_ty typ = ()
@@ -47,26 +51,23 @@ module Semant = struct
   let tr_cond cond t f = ()
   let tr_while expr expr = ()
   let tr_for var expr expr expr = ()
-  let tr_break br = ()
+  let tr_break br loop = ()
+
   let tr_let decs body = ()
   let tr_array typ size init = ()
 
   let trans_decs decs = ()
-  let trans_dec dec = ()
   let trans_tys tys = ()
   let trans_funs funs = ()
   let trans_fun_head fun_dec = ()
   let trans_var var = ()
 
-  let ret_int () = ()
-  let ret_string () = ()
-  let ret_nil () = ()
-  let ret_unit () = ()
+  let ret_ty ty = ()
 
   let assert_ty ty expr = ()
   let assert_comparison expr l r = ()
   let assert_op l r = ()
-  let assert_fun_body ty fun_dec = ()
+  let assert_fun_body fun_dec result = ()
   let assert_init var init_ty = ()
 end
 

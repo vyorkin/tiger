@@ -25,7 +25,7 @@ end
 module Semant : sig
   open Syntax
 
-  val trans_prog : expr L.t -> unit
+  val trans_prog : expr -> unit
   val trans_expr : expr L.t -> unit
   val trans_ty : ty -> unit
   val tr_expr : expr L.t -> unit
@@ -42,25 +42,21 @@ module Semant : sig
   val tr_cond : expr L.t -> expr L.t -> (expr L.t) option -> unit
   val tr_while : expr L.t -> expr L.t -> unit
   val tr_for : S.t L.t -> expr L.t -> expr L.t -> expr L.t -> unit
-  val tr_break : unit L.t -> unit
+  val tr_break : unit L.t -> S.t option -> unit
   val tr_let : dec list -> expr L.t -> unit
   val tr_array : S.t L.t -> expr L.t -> expr L.t -> unit
 
   val trans_decs : dec list -> unit
-  val trans_dec : dec -> unit
   val trans_tys : (type_dec L.t) list -> unit
   val trans_funs : (fun_dec L.t) list -> unit
   val trans_fun_head : fun_dec L.t -> unit
   val trans_var : var_dec L.t -> unit
 
-  val ret_int : unit -> unit
-  val ret_string : unit -> unit
-  val ret_nil : unit -> unit
-  val ret_unit : unit -> unit
+  val ret_ty : T.t -> unit
 
   val assert_ty : T.t -> expr L.t -> unit
   val assert_comparison : expr L.t -> expr L.t -> expr L.t -> unit
   val assert_op : expr L.t -> expr L.t -> unit
-  val assert_fun_body : T.t -> fun_dec L.t -> unit
+  val assert_fun_body : fun_dec L.t -> T.t -> unit
   val assert_init : var_dec L.t -> T.t -> unit
 end
