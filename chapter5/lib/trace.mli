@@ -26,7 +26,6 @@ module Semant : sig
   open Syntax
 
   val trans_prog : expr -> unit
-  val trans_expr : expr L.t -> unit
   val trans_ty : ty -> unit
   val tr_expr : expr L.t -> unit
   val tr_var : var L.t -> unit
@@ -34,7 +33,7 @@ module Semant : sig
   val tr_field_var : var L.t -> S.t L.t -> unit
   val tr_subscript_var : var L.t -> expr L.t -> unit
   val tr_call : S.t L.t -> expr L.t list -> unit
-  val tr_op : expr L.t -> expr L.t -> expr L.t -> op -> unit
+  val tr_op : expr L.t -> expr L.t -> op -> unit
   val tr_record : S.t L.t -> (S.t L.t * expr L.t) list -> unit
   val tr_record_field : T.t -> S.t L.t -> expr L.t -> unit
   val tr_seq : (expr L.t) list -> unit

@@ -7,8 +7,8 @@ let run_tiger fn ch =
   let lexbuf = Lexbuf.mk fn ch in
   try
     let expr = Parser.main Lexer.read lexbuf in
-    printf "%s\n" (Syntax.show_expr expr);
-    Semant.trans_prog expr
+    Semant.trans_prog expr;
+    printf "%s\n" (Syntax.show_expr expr)
   with
   | Lexer.LexingError msg ->
     eprintf "%s: lexing error%s\n" (Lexbuf.pos lexbuf) msg

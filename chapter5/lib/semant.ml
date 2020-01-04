@@ -102,7 +102,7 @@ and trans_expr expr ~env =
   (* In our language binary operators work only with
      integer operands, except for (=) and (<>) *)
   and tr_op expr l r op ~env =
-    Trace.Semant.tr_op expr l r op;
+    Trace.Semant.tr_op l r op;
     match op with
     | Syntax.Eq | Syntax.Neq ->
       assert_comparison expr l r ~env
@@ -287,7 +287,6 @@ and trans_expr expr ~env =
         "\"%s\" is not an array" (T.to_string arr_ty.ty)
 
   in
-  Trace.Semant.trans_expr expr;
   tr_expr expr ~env
 
 and trans_decs decs ~env =
