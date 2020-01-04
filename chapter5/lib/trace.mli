@@ -1,5 +1,6 @@
 module S = Symbol
 module L = Location
+module T = Type
 
 (** Trace target *)
 type target =
@@ -21,8 +22,45 @@ module Symbol : sig
   val bind : string -> S.t L.t -> unit
 end
 
-(* module Semant : sig
- *   val trans_prog : Syntax.expr L.t -> unit
- *   val trans_expr : Syntax.expr L.t -> unit
- *   val trnas_ty : Syntax.ty -> unit
- * end *)
+module Semant : sig
+  open Syntax
+
+  val trans_prog : expr L.t -> unit
+  val trans_expr : expr L.t -> unit
+  val trans_ty : ty -> unit
+  val tr_expr : expr L.t -> unit
+  val tr_var : var L.t -> unit
+  val tr_simple_var : S.t L.t -> unit
+  val tr_field_var : var L.t -> S.t L.t -> unit
+  val tr_subscript_var : var L.t -> expr L.t -> unit
+  val tr_call : S.t L.t -> expr L.t list -> unit
+  val tr_op : expr L.t -> expr L.t -> expr L.t -> op -> unit
+  val tr_record : S.t L.t -> (S.t L.t * expr L.t) list -> unit
+  val tr_record_field : T.t -> S.t L.t -> expr L.t -> unit
+  val tr_seq : (expr L.t) list -> unit
+  val tr_assign : var L.t -> expr L.t -> unit
+  val tr_cond : expr L.t -> expr L.t -> (expr L.t) option -> unit
+  val tr_while : expr L.t -> expr L.t -> unit
+  val tr_for : S.t L.t -> expr L.t -> expr L.t -> expr L.t -> unit
+  val tr_break : unit L.t -> unit
+  val tr_let : dec list -> expr L.t -> unit
+  val tr_array : S.t L.t -> expr L.t -> expr L.t -> unit
+
+  val trans_decs : dec list -> unit
+  val trans_dec : dec -> unit
+  val trans_tys : (type_dec L.t) list -> unit
+  val trans_funs : (fun_dec L.t) list -> unit
+  val trans_fun_head : fun_dec L.t -> unit
+  val trans_var : var_dec L.t -> unit
+
+  val ret_int : unit -> unit
+  val ret_string : unit -> unit
+  val ret_nil : unit -> unit
+  val ret_unit : unit -> unit
+
+  val assert_ty : T.t -> expr L.t -> unit
+  val assert_comparison : expr L.t -> expr L.t -> expr L.t -> unit
+  val assert_op : expr L.t -> expr L.t -> unit
+  val assert_fun_body : T.t -> fun_dec L.t -> unit
+  val assert_init : var_dec L.t -> T.t -> unit
+end

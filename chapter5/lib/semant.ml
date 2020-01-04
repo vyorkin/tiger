@@ -33,6 +33,7 @@ let missing_field_error t name =
     (T.to_string t) (name.L.value.S.name)
 
 let rec trans_prog expr =
+  (* Trace.Semant.trans_prog expr; *)
   ignore @@ trans_expr (L.dummy expr) ~env:(Env.mk ())
 
 and trans_expr expr ~env =
@@ -69,6 +70,7 @@ and trans_expr expr ~env =
     | Array (ty, size, init) -> tr_array ty size init ~env
 
   and tr_break br ~env =
+    (* TODO: Use [Trace] module instead *)
     (* List.iteri env.path ~f:(fun idx node ->
      *     let expr_str = Syntax.show_expr node.L.value in
      *     print_endline @@ sprintf "\n[%d]:\n\t%s\n" idx expr_str); *)
@@ -269,8 +271,8 @@ and trans_expr expr ~env =
 
   in tr_expr expr ~env
 
-and trans_decs ~env =
-  List.fold_left
+and trans_decs decs ~env =
+  List.fold_left decs
     ~f:(fun env dec -> trans_dec dec ~env)
     ~init:env
 
@@ -329,7 +331,8 @@ and trans_funs fs ~env =
     if T.(body_ty <> result)
     then type_mismatch_error4
         "type of the body expression doesn't match the declared result type, "
-        body result body_ty; in
+        body result body_ty;
+  in
   (* Now, lets check the bodies *)
   List.iter2_exn (List.rev sigs) fs ~f:assert_fun_body;
   { env with venv = venv' }

@@ -12,10 +12,8 @@ type ventry =
       T.t (** type of the result returned by the function (or unit) **)
 [@@deriving show]
 
-type tentry = T.t
-
 type venv = ventry ST.t
-type tenv = tentry ST.t
+type tenv = T.t ST.t
 
 type t = {
   (** Type-level environemnt *)
