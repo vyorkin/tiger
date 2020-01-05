@@ -1,3 +1,5 @@
+open Core_kernel
+
 module S = Symbol
 module L = Location
 module T = Type
@@ -30,54 +32,62 @@ module Semant = struct
 
   let src = Logs.Src.create "tig.semant" ~doc:"Semantic analysis"
   let trace  f = Logs.debug ~src (fun m -> f (m ~header:"semant"))
-  let trace' s = trace (fun m -> m "%s" s)
-  let print name expr = trace @@ fun m -> m "%s: %s" name expr
+  let trace' s = trace (fun m -> m s)
+  let print_tr name expr = trace @@ fun m -> m ">>> %s: %s" name expr
 
-  let trans_prog expr =
+  let trans_prog _ =
     trace' "trans_prog"
   let trans_ty typ =
-    print "trans_ty" (print_ty typ)
+    print_tr "trans_ty" (print_ty typ)
   let tr_expr expr =
-    print "tr_expr" (print_expr expr.L.value)
+    print_tr "tr_expr" (print_expr expr.L.value)
   let tr_var var =
-    print "tr_var" (print_var var.L.value)
+    print_tr "tr_var" (print_var var.L.value)
   let tr_simple_var sym =
-    print "tr_simple_var" (print_simple_var sym)
+    print_tr "tr_simple_var" (print_simple_var sym)
   let tr_field_var var field =
-    print "tr_field_var" (print_field_var var field)
+    print_tr "tr_field_var" (print_field_var var field)
   let tr_subscript_var var sub =
-    print "tr_subscript_var" (print_subscript_var var sub)
+    print_tr "tr_subscript_var" (print_subscript_var var sub)
   let tr_call f args =
-    print "tr_call" (print_call f args)
+    print_tr "tr_call" (print_call f args)
   let tr_op l r op =
-    print "tr_op" (print_op l r op)
+    print_tr "tr_op" (print_op l r op)
   let tr_record ty_name vfields =
-    print "tr_record" (print_record ty_name vfields)
-  let tr_record_field ty name expr =
-    ()
+    print_tr "tr_record" (print_record ty_name vfields)
+  let tr_record_field name expr ty =
+    print_tr "tr_record_field" (print_record_field name expr (Some ty))
   let tr_seq exprs =
-    print "tr_seq" (print_seq exprs)
+    print_tr "tr_seq" (print_seq exprs)
   let tr_assign var expr =
-    print "tr_assign" (print_assign var expr)
+    print_tr "tr_assign" (print_assign var expr)
   let tr_cond cond t f =
-    print "tr_cond" (print_cond cond t f)
+    print_tr "tr_cond" (print_cond cond t f)
   let tr_while cond body =
-    print "tr_while" (print_while cond body)
+    print_tr "tr_while" (print_while cond body)
   let tr_for var lo hi body =
-    print "tr_for" (print_for var lo hi body)
+    print_tr "tr_for" (print_for var lo hi body)
   let tr_break br loop =
-    print "tr_break" (print_break br)
+    let mark = match loop with
+      | Some _ -> "inside"
+      | None -> "outside"
+    in
+    trace @@ fun m -> m ">>> tr_break (%s): %s"
+      mark (print_break br)
 
   let tr_let decs body =
-    print "tr_let" (print_let decs body)
+    print_tr "tr_let" (print_let decs body)
   let tr_array typ size init =
-    print "tr_array" (print_array typ size init)
+    print_tr "tr_array" (print_array typ size init)
 
-  let trans_decs decs = ()
-  let trans_tys tys = ()
-  let trans_funs funs = ()
+  let trans_decs decs =
+    trace @@ fun m -> m ">>> trans_decs:\n%s" (print_decs decs)
+  let trans_type_decs tys =
+    print_tr "trans_type_decs" (print_type_decs tys)
+  let trans_fun_decs fs =
+    print_tr "trans_fun" (print_fun_decs fs)
   let trans_fun_head fun_dec = ()
-  let trans_var var = ()
+  let trans_var_dec var = ()
 
   let ret_ty ty =
     trace @@ T.(fun m -> m "<-- %s (%s)" (to_string ty) (to_string (~! ty)))

@@ -2,6 +2,7 @@ open Core_kernel
 
 module L = Location
 module S = Symbol
+module T = Type
 
 type op =
   (* arithmetics *)
@@ -105,11 +106,6 @@ and fun_dec = {
 } [@@deriving show { with_path = false }]
 
 module Printer = struct
-  let print_ty = function
-    | NameTy _ -> "name"
-    | RecordTy _ -> "record"
-    | ArrayTy _ -> "array"
-
   let rec print_expr = function
     | Var var ->
       print_var var.L.value
@@ -142,11 +138,27 @@ module Printer = struct
     | Array (typ, size, init) ->
       print_array typ size init
 
+  and print_ty = function
+    | NameTy sym ->
+      print_symbol sym
+    | RecordTy fields ->
+      sprintf "\n{\n  %s\n}" (print_fields fields)
+    | ArrayTy sym ->
+      sprintf "[%s]" (print_symbol sym)
+
+  and print_fields fields =
+    fields
+    |> List.map ~f:print_field
+    |> String.concat ~sep:";\n"
+
+  and print_field field =
+    sprintf "%s : %s" (print_symbol field.name) (print_symbol field.typ)
+
   and print_int x =
-    sprintf "%s : int" (Int.to_string x.L.value)
+    Int.to_string x.L.value
 
   and print_string s =
-    sprintf "\"%s\" : string" s.L.value
+    sprintf "\"%s\"" s.L.value
 
   and print_op l r op =
     sprintf "%s %s %s"
@@ -197,41 +209,107 @@ module Printer = struct
       (print_var var.L.value)
       (print_expr sub.L.value)
 
-  and print_dec _ = ""
+  and print_decs decs =
+    decs
+    |> List.map ~f:print_dec
+    |> String.concat ~sep:"\n"
 
-  and print_var_dec _ = ""
+  and print_dec = function
+    | TypeDec tys ->
+      print_type_decs tys
+    | FunDec fs ->
+      print_fun_decs fs
+    | VarDec var ->
+      print_var_dec var
 
-  and print_type_dec _ = ""
+  and print_type_decs tys =
+    tys
+    |> List.map ~f:print_type_dec
+    |> String.concat ~sep:"\n"
 
-  and print_fun_dec _ = ""
+  and print_fun_decs fs =
+    fs
+    |> List.map ~f:print_fun_dec
+    |> String.concat ~sep:"\n"
+
+  and print_type_dec ty_dec =
+    let ty = ty_dec.L.value in
+    sprintf "%s = %s"
+      (print_symbol ty.type_name)
+      (print_ty ty.typ)
+
+  and print_fun_dec fun_dec =
+    let f = fun_dec.L.value in
+    sprintf "function %s(%s)%s= ..."
+      (print_symbol f.fun_name)
+      (print_fields f.params)
+      (Option.value_map f.result_typ ~default:"" ~f:print_symbol)
+
+  and print_var_dec var =
+    let v = var.L.value in
+    sprintf "%s%s := %s"
+      (print_symbol v.var_name)
+      (Option.value_map v.var_typ ~default:"" ~f:print_symbol)
+      (print_expr v.init.L.value)
 
   and print_seq exprs =
-    sprintf "(%d)" (List.length exprs)
+    sprintf "(;%d;)" (List.length exprs)
 
   and print_assign var expr =
-    ""
+    sprintf "%s := %s"
+      (print_var var.L.value)
+      (print_expr expr.L.value)
 
   and print_record ty_name vfields =
-    ""
+    sprintf "\n%s :=\n{\n  %s\n}"
+      (print_symbol ty_name)
+      (print_record_fields vfields)
+
+  and print_record_fields fields =
+    fields
+    |> List.map ~f:(fun (name, expr) -> print_record_field name expr None)
+    |> String.concat ~sep:",\n"
+
+  and print_record_field name expr ty =
+    sprintf "\n  %s%s = %s"
+      (print_symbol name)
+      (print_expr expr.L.value)
+      (Option.value_map ty ~default:"" ~f:T.to_string)
 
   and print_cond cond t f =
-    ""
+    sprintf "if %s then %s%s"
+      (print_expr cond.L.value)
+      (print_expr t.L.value)
+      (Option.value_map f ~default:""
+         ~f:(fun e -> sprintf " else %s" @@ print_expr e.L.value))
 
   and print_while cond body =
-    ""
+    sprintf "\nwhile %s\n  %s"
+      (print_expr cond.L.value)
+      (print_expr body.L.value)
 
   and print_for var lo hi body =
-    ""
+    sprintf "\nfor %s := %s to %s do\n  %s"
+      (print_symbol var)
+      (print_expr lo.L.value)
+      (print_expr hi.L.value)
+      (print_expr body.L.value)
 
-  and print_break br =
-    ""
+  and print_break _ =
+    "break"
 
   and print_let decs body =
-    ""
+    sprintf "\nlet\n%s\nin\n%s"
+      (print_decs decs)
+      (print_expr body.L.value)
 
   and print_array typ size init =
-    "[array]"
+    sprintf "%s[%s] of %s"
+      (print_symbol typ)
+      (print_expr size.L.value)
+      (print_expr init.L.value)
 
   and print_symbol sym =
-    sprintf "%s <#%d>" sym.L.value.S.name sym.L.value.id
+    let s = sym.L.value in
+    sprintf "%s <#%d>" s.name s.id
 end

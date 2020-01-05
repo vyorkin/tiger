@@ -187,7 +187,7 @@ and trans_expr expr ~env =
   (* Then the new environments are discarded *)
 
   and tr_record_field rec_typ tfields (name, expr) ~env =
-    Trace.Semant.tr_record_field rec_typ name expr;
+    Trace.Semant.tr_record_field name expr rec_typ;
     (* Find a type of the field with [name] *)
     match List.Assoc.find tfields ~equal:S.equal name.L.value with
     | Some ty_field ->
@@ -298,11 +298,11 @@ and trans_decs decs ~env =
 (* Modifies and returns term-level and
    type-level environments adding the given declaration *)
 and trans_dec ~env = function
-  | TypeDec tys -> trans_tys tys ~env
-  | FunDec fs -> trans_funs fs ~env
-  | VarDec var -> trans_var var ~env
+  | TypeDec tys -> trans_type_decs tys ~env
+  | FunDec fs -> trans_fun_decs fs ~env
+  | VarDec var -> trans_var_dec var ~env
 
-and trans_tys tys ~env =
+and trans_type_decs tys ~env =
   let open Syntax in
   let tr_ty_head (tns, tenv) ty_dec =
     let typ = ty_dec.L.value.type_name in
@@ -318,12 +318,12 @@ and trans_tys tys ~env =
     let t = trans_ty tenv' typ in
     tn := Some t
   in
-  Trace.Semant.trans_tys tys;
+  Trace.Semant.trans_type_decs tys;
   (* Resolve the (possibly mutually recursive) types *)
   List.iter2_exn (List.rev tns) tys ~f:resolve_ty;
   { env with tenv = tenv' }
 
-and trans_funs fs ~env =
+and trans_fun_decs fs ~env =
   let open Syntax in
   let open Env in
   let tr_fun_head (sigs, venv) fun_dec =
@@ -356,7 +356,7 @@ and trans_funs fs ~env =
         "type of the body expression doesn't match the declared result type, "
         body result body_ty;
   in
-  Trace.Semant.trans_funs fs;
+  Trace.Semant.trans_fun_decs fs;
   (* Now, lets check the bodies *)
   List.iter2_exn (List.rev sigs) fs ~f:assert_fun_body;
   { env with venv = venv' }
@@ -375,9 +375,9 @@ and assert_init var init_ty ~env =
     if T.(var_ty @<> init_ty)
     then type_mismatch_error3 init var_ty init_ty
 
-and trans_var var ~env =
+and trans_var_dec var ~env =
   let open Syntax in
-  Trace.Semant.trans_var var;
+  Trace.Semant.trans_var_dec var;
   let { var_name; init; _ } = var.L.value in
   let { ty = init_ty; _ } = trans_expr init ~env in
   assert_init var init_ty ~env;

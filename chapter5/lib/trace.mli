@@ -35,7 +35,7 @@ module Semant : sig
   val tr_call : S.t L.t -> expr L.t list -> unit
   val tr_op : expr L.t -> expr L.t -> op -> unit
   val tr_record : S.t L.t -> (S.t L.t * expr L.t) list -> unit
-  val tr_record_field : T.t -> S.t L.t -> expr L.t -> unit
+  val tr_record_field : S.t L.t -> expr L.t -> T.t -> unit
   val tr_seq : (expr L.t) list -> unit
   val tr_assign : var L.t -> expr L.t -> unit
   val tr_cond : expr L.t -> expr L.t -> (expr L.t) option -> unit
@@ -46,10 +46,10 @@ module Semant : sig
   val tr_array : S.t L.t -> expr L.t -> expr L.t -> unit
 
   val trans_decs : dec list -> unit
-  val trans_tys : (type_dec L.t) list -> unit
-  val trans_funs : (fun_dec L.t) list -> unit
+  val trans_type_decs : (type_dec L.t) list -> unit
+  val trans_fun_decs : (fun_dec L.t) list -> unit
   val trans_fun_head : fun_dec L.t -> unit
-  val trans_var : var_dec L.t -> unit
+  val trans_var_dec : var_dec L.t -> unit
 
   val ret_ty : T.t -> unit
 

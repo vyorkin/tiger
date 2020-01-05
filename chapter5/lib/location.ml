@@ -19,3 +19,6 @@ type 'a t =
 let mk value loc = { value; loc }
 
 let dummy value = mk value (dummy_pos, dummy_pos)
+
+let line { loc = (pos_start, _); _ } =
+  pos_start.pos_lnum
