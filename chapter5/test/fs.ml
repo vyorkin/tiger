@@ -13,12 +13,12 @@ let keep name ~included ~excluded =
   (List.is_empty included || List.mem included name ~equal:String.equal) &&
   not (List.mem excluded name ~equal:String.equal)
 
-let rec ls_rec path ?(included = []) ?(excluded = []) =
+let rec ls_rec ?(included = []) ?(excluded = []) path =
   let name = Filename.basename path in
   let ls () =
     path
     |> Sys.ls_dir
-    |> List.concat_map ~f:(fun sub -> ls_rec (path ^/ sub) ~included ~excluded)
+    |> List.concat_map ~f:(fun sub -> ls_rec ~included ~excluded (path ^/ sub))
   in
   let mk () = if keep name ~included ~excluded then [path] else [] in
   if tig_file path then mk () else ls ()

@@ -78,7 +78,6 @@ and trans_expr expr ~env =
     Trace.Semant.tr_break br env.loop;
     match env.loop with
     | Some _ ->
-      (* TODO: Trace breaking the loop *)
       ret_unit
     | None ->
       syntax_error br "unexpected break statement"
@@ -257,8 +256,6 @@ and trans_expr expr ~env =
 
   and tr_field_var var field ~env =
     Trace.Semant.tr_field_var var field;
-    (* TODO: Check for "nil" *)
-
     (* Find a type of the record variable *)
     let rec_ty = tr_var var ~env in
     (* Lets see if its actually a record *)

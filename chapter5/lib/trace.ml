@@ -116,9 +116,3 @@ module Semant = struct
       (print_var_dec var)
       (T.to_string init_ty)
 end
-
-let reporter ppf =
-  (* [ppf] is our pretty-printing formatter
-     see https://ocaml.org/learn/tutorials/format.html#Most-general-pretty-printing-using-fprintf for deatils *)
-  let report src level ~over k msgf = ()
-  in ()
