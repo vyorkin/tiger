@@ -20,7 +20,8 @@ type source =
 module Symbol = struct
   let src = Logs.Src.create "tig.symbol" ~doc:"Symbol table"
   let trace op name sym =
-    Logs.debug ~src (fun m -> m ~header:"symbol" "%s %s: %s" op name (S.to_string sym))
+    Logs.debug ~src (fun m ->
+        m ~header:"symbol" "%s %s: %s" op name (S.to_string sym))
 
   let bind name sym = trace "<==" name sym
   let look name sym = trace "==>" name sym
@@ -83,20 +84,37 @@ module Semant = struct
   let trans_decs decs =
     trace @@ fun m -> m ">>> trans_decs:\n%s" (print_decs decs)
   let trans_type_decs tys =
-    print_tr "trans_type_decs" (print_type_decs tys)
+    trace @@ fun m -> m ">>> trans_type_decs:\n%s" (print_type_decs tys)
   let trans_fun_decs fs =
     print_tr "trans_fun" (print_fun_decs fs)
-  let trans_fun_head fun_dec = ()
-  let trans_var_dec var = ()
+  let trans_fun_head fun_dec =
+    print_tr "trans_fun_head" (print_fun_dec fun_dec)
+  let trans_var_dec var =
+    print_tr "trans_var_dec" (print_var_dec var)
 
   let ret_ty ty =
     trace @@ T.(fun m -> m "<-- %s (%s)" (to_string ty) (to_string (~! ty)))
 
-  let assert_ty ty expr = ()
-  let assert_comparison expr l r = ()
-  let assert_op l r = ()
-  let assert_fun_body fun_dec result = ()
-  let assert_init var init_ty = ()
+  let assert_ty ty expr =
+    trace @@ fun m -> m "!!! (ty) %s : %s" (print_expr expr.L.value) (T.to_string ty)
+  let assert_comparison expr l r =
+    trace @@ fun m -> m "!!! (comparsion) %s : %s (%s)"
+      (print_expr l.L.value)
+      (print_expr r.L.value)
+      (print_expr expr.L.value)
+  let assert_op l r =
+    trace @@ fun m -> m "!!! (op) %s : int && %s : int"
+      (print_expr l.L.value)
+      (print_expr r.L.value)
+  let assert_fun_body fun_dec result =
+    trace @@ fun m -> m "!!! (fun body) %s : %s"
+      (print_fun_dec fun_dec)
+      (T.to_string result)
+
+  let assert_init var init_ty =
+    trace @@ fun m -> m "!!! (init) %s : %s"
+      (print_var_dec var)
+      (T.to_string init_ty)
 end
 
 let reporter ppf =

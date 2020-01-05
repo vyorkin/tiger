@@ -142,7 +142,7 @@ module Printer = struct
     | NameTy sym ->
       print_symbol sym
     | RecordTy fields ->
-      sprintf "\n{\n  %s\n}" (print_fields fields)
+      sprintf "\n{\n%s\n}" (print_fields fields)
     | ArrayTy sym ->
       sprintf "[%s]" (print_symbol sym)
 
@@ -240,10 +240,11 @@ module Printer = struct
 
   and print_fun_dec fun_dec =
     let f = fun_dec.L.value in
-    sprintf "function %s(%s)%s= ..."
+    sprintf "function %s(%s)%s = ..."
       (print_symbol f.fun_name)
       (print_fields f.params)
-      (Option.value_map f.result_typ ~default:"" ~f:print_symbol)
+      (Option.value_map f.result_typ ~default:""
+         ~f:(fun s -> sprintf " : %s" @@ print_symbol s))
 
   and print_var_dec var =
     let v = var.L.value in
