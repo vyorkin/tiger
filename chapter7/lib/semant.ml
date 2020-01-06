@@ -32,7 +32,7 @@ let missing_field_error t name =
 
 let rec trans_prog expr =
   let open Env in
-  ignore @@ trans_expr base_venv base_tenv
+  ignore @@ trans_expr base
     Translate.outermost (L.dummy expr)
 
 and trans_expr venv tenv level expr =
@@ -148,7 +148,7 @@ and trans_expr venv tenv level expr =
 
   (* in Tiger declarations appear only in a "let" expression,
      the let expression modifies both:
-     type-level (tenv) and term-level (venv) environments *)
+     type-level (tenv) and term-level (value-level/venv) environments *)
   and tr_let lev decs body =
     (* update env's according to declarations *)
     let venv', tenv' = trans_decs venv tenv lev decs in

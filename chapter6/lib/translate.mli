@@ -1,11 +1,11 @@
-type expr = unit
+type expr = unit [@@deriving show]
 
 (** Represents a nesting level *)
-type level
+type level [@@deriving show]
 
 (** Describes a way to access a formal parameter or a local variable.
     Basically, it is just a [Frame.access] plus a nesting [level] *)
-type access = level * Frame.access
+type access = level * Frame.access [@@deriving show]
 
 (** Outermost level at which all
     top-level functions and variables are declared *)

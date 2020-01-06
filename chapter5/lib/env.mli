@@ -18,7 +18,7 @@ type tenv = T.t ST.t
 type t = {
   (** Type-level environemnt *)
   tenv : tenv;
-  (** Term-level environment *)
+  (** Term-level (value) environment *)
   venv : venv;
   (** AST traversal path *)
   path : (Syntax.expr L.t) list;

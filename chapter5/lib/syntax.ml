@@ -89,7 +89,7 @@ and var_dec = {
   var_typ : S.t L.t option;
   init : expr L.t;
   escape : bool ref;
-} [@@deriving show]
+} [@@deriving show { with_path = false }]
 
 (* Type declaration *)
 and type_dec = {
@@ -142,14 +142,14 @@ module Printer = struct
     | NameTy sym ->
       print_symbol sym
     | RecordTy fields ->
-      sprintf "\n{\n%s\n}" (print_fields fields)
+      sprintf "\n{\n%s\n}" (print_fields fields ~sep:";\n")
     | ArrayTy sym ->
       sprintf "[%s]" (print_symbol sym)
 
-  and print_fields fields =
+  and print_fields fields ~sep =
     fields
     |> List.map ~f:print_field
-    |> String.concat ~sep:";\n"
+    |> String.concat ~sep
 
   and print_field field =
     sprintf "%s : %s" (print_symbol field.name) (print_symbol field.typ)
@@ -242,7 +242,7 @@ module Printer = struct
     let f = fun_dec.L.value in
     sprintf "function %s(%s)%s = ..."
       (print_symbol f.fun_name)
-      (print_fields f.params)
+      (print_fields f.params ~sep:", ")
       (Option.value_map f.result_typ ~default:""
          ~f:(fun s -> sprintf " : %s" @@ print_symbol s))
 

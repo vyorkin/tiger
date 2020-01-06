@@ -6,7 +6,7 @@ exe:
 	dune exe bin/driver.exe -- ../book/testcases/test6.tig
 
 test:
-	dune runtest
+	dune exe ./test/testsuite.exe
 
 utop:
 	dune utop --

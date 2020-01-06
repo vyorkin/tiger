@@ -1,9 +1,9 @@
 module S = Symbol
-module Table = S.Table
+module ST = Symbol_table
 
 type depth = int [@@deriving show]
 
-type env = (depth * bool ref) Table.t
+type env = (depth * bool ref) ST.t
 
 (* variable escapes if:
    - it is passed by reference

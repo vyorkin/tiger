@@ -14,8 +14,11 @@ let range_string loc =
 type 'a t =
   { value: 'a;
     loc: loc [@printer fun fmt l -> Format.pp_print_string fmt (range_string l)]
-  } [@@deriving show]
+  } [@@deriving show { with_path = false }]
 
 let mk value loc = { value; loc }
 
 let dummy value = mk value (dummy_pos, dummy_pos)
+
+let line { loc = (pos_start, _); _ } =
+  pos_start.pos_lnum

@@ -154,7 +154,7 @@ let while_loop :=
 let for_loop :=
   "for"; i = "id"; ":="; lo = loc(expr);
   "to"; hi = loc(expr); "do"; body = loc(expr);
-  { For(S.mk i, lo, hi, body, ref true) }
+  { For(L.mk (S.mk i) $loc, lo, hi, body, ref true) }
 
 let conditional :=
   | "if"; cond = loc(expr); "then"; t = loc(expr); "else"; f = loc(expr);

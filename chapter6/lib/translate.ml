@@ -11,7 +11,7 @@ type level = {
 
 (* the [level] part will be necessary later for calculating static links,
    when the variable is accessed from a (possibly) different level *)
-type access = level * Frame.access
+type access = level * Frame.access [@@deriving show]
 
 (* static link -- pointer to / address of the frame of
    the function statically enclosing current function *)

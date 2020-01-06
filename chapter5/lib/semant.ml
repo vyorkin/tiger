@@ -175,7 +175,7 @@ and trans_expr expr ~env =
 
   (* In Tiger declarations appear only in a "let" expression,
      the let expression modifies both:
-     type-level (tenv) and term-level (venv) environments *)
+     type-level (tenv) and term-level (value-level/venv) environments *)
   and tr_let decs body ~env =
     Trace.Semant.tr_let decs body;
     (* Update env's according to declarations *)
@@ -282,7 +282,6 @@ and trans_expr expr ~env =
     | _ ->
       type_error var @@ sprintf
         "\"%s\" is not an array" (T.to_string arr_ty.ty)
-
   in
   tr_expr expr ~env
 
@@ -320,17 +319,18 @@ and trans_type_decs tys ~env =
   List.iter2_exn (List.rev tns) tys ~f:resolve_ty;
   { env with tenv = tenv' }
 
+(* Checks (possibly mutually-recursive) functions *)
 and trans_fun_decs fs ~env =
   let open Syntax in
   let open Env in
   let tr_fun_head (sigs, venv) fun_dec =
     Trace.Semant.trans_fun_head fun_dec;
     let { fun_name; params; result_typ; _ } = fun_dec.L.value in
-    (* Translate function arguments *)
+    (* Check function arguments *)
     let tr_arg f = f.name, ST.look_typ env.tenv f.typ in
     let args = List.map params ~f:tr_arg in
     let formals = List.map args ~f:snd in
-    (* Translate the result type *)
+    (* Check the result type *)
     let result = match result_typ with
       | None -> T.Unit
       | Some t -> ST.look_typ env.tenv t in
@@ -341,12 +341,12 @@ and trans_fun_decs fs ~env =
   let (sigs, venv') = List.fold_left fs ~f:tr_fun_head ~init:([], env.venv) in
   let assert_fun_body (args, result) fun_dec =
     Trace.Semant.assert_fun_body fun_dec result;
-    let { body; _ } = fun_dec.L.value in
     (* Here, we build another [venv''] to be used for body processing
        it should have all the arguments in it *)
-    let add_var e (name, t) = ST.bind_var e name (VarEntry t) in
+    let add_var e (name, ty) = ST.bind_var e name (VarEntry ty) in
     let venv'' = List.fold_left args ~init:venv' ~f:add_var in
     let env' = { env with venv = venv'' } in
+    let { body; _ } = fun_dec.L.value in
     let { ty = body_ty; _ } = trans_expr body ~env:env' in
     if T.(body_ty <> result)
     then type_mismatch_error4
