@@ -2,18 +2,6 @@ module S = Symbol
 module L = Location
 module T = Type
 
-(** Trace target *)
-type target =
-  | Stdout
-  | File of string
-[@@deriving eq, show]
-
-(** Trace sources *)
-type source =
-  | Env of target list
-  | Semant of target list
-[@@deriving eq, show]
-
 module Symbol : sig
   (** Trace lookup *)
   val look : string -> S.t L.t -> unit
@@ -59,3 +47,5 @@ module Semant : sig
   val assert_fun_body : fun_dec L.t -> T.t -> unit
   val assert_init : var_dec L.t -> T.t -> unit
 end
+
+val mk_reporter : Config.t -> Logs.reporter

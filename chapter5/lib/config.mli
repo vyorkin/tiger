@@ -1,5 +1,3 @@
 type t = {
-  trace_sources: Trace.source list;
-}
-
-val setup : t -> unit
+  trace_sources: Trace_source.t list;
+} [@@deriving make]

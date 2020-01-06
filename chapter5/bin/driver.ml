@@ -20,7 +20,13 @@ let run_tiger fn ch =
 let run_file fn () =
   Fmt_tty.setup_std_outputs ();
   Logs.set_level @@ Some Logs.Debug;
-  Logs.set_reporter @@ Logs_fmt.reporter ();
+  let trace_sources = Trace_source.[
+    Symbol [Stdout];
+    Semant [Stdout]
+  ] in
+  let cfg = Config.make ~trace_sources () in
+  Logs.set_reporter @@ Trace.mk_reporter cfg;
+  (* Logs.set_reporter @@ Logs_fmt.reporter (); *)
   In_channel.with_file fn ~f:(run_tiger fn)
 
 let () =

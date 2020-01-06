@@ -10,7 +10,7 @@ type target =
 [@@deriving eq, show]
 
 type source =
-  | Env of target list
+  | Symbol of target list
   | Semant of target list
 [@@deriving eq, show]
 
@@ -32,42 +32,41 @@ module Semant = struct
   open Syntax.Printer
 
   let src = Logs.Src.create "tig.semant" ~doc:"Semantic analysis"
-  let trace  f = Logs.debug ~src (fun m -> f (m ~header:"semant"))
-  let trace' s = trace (fun m -> m s)
-  let print_tr name expr = trace @@ fun m -> m ">>> %s: %s" name expr
+  let trace f = Logs.debug ~src (fun m -> f (m ~header:"semant"))
+  let trace_tr name expr = trace @@ fun m -> m ">>> %s: %s" name expr
 
   let trans_prog _ =
-    trace' "trans_prog"
+    trace (fun m -> m "trans_prog")
   let trans_ty typ =
-    print_tr "trans_ty" (print_ty typ)
+    trace_tr "trans_ty" (print_ty typ)
   let tr_expr expr =
-    print_tr "tr_expr" (print_expr expr.L.value)
+    trace_tr "tr_expr" (print_expr expr.L.value)
   let tr_var var =
-    print_tr "tr_var" (print_var var.L.value)
+    trace_tr "tr_var" (print_var var.L.value)
   let tr_simple_var sym =
-    print_tr "tr_simple_var" (print_simple_var sym)
+    trace_tr "tr_simple_var" (print_simple_var sym)
   let tr_field_var var field =
-    print_tr "tr_field_var" (print_field_var var field)
+    trace_tr "tr_field_var" (print_field_var var field)
   let tr_subscript_var var sub =
-    print_tr "tr_subscript_var" (print_subscript_var var sub)
+    trace_tr "tr_subscript_var" (print_subscript_var var sub)
   let tr_call f args =
-    print_tr "tr_call" (print_call f args)
+    trace_tr "tr_call" (print_call f args)
   let tr_op l r op =
-    print_tr "tr_op" (print_op l r op)
+    trace_tr "tr_op" (print_op l r op)
   let tr_record ty_name vfields =
-    print_tr "tr_record" (print_record ty_name vfields)
+    trace_tr "tr_record" (print_record ty_name vfields)
   let tr_record_field name expr ty =
-    print_tr "tr_record_field" (print_record_field name expr (Some ty))
+    trace_tr "tr_record_field" (print_record_field name expr (Some ty))
   let tr_seq exprs =
-    print_tr "tr_seq" (print_seq exprs)
+    trace_tr "tr_seq" (print_seq exprs)
   let tr_assign var expr =
-    print_tr "tr_assign" (print_assign var expr)
+    trace_tr "tr_assign" (print_assign var expr)
   let tr_cond cond t f =
-    print_tr "tr_cond" (print_cond cond t f)
+    trace_tr "tr_cond" (print_cond cond t f)
   let tr_while cond body =
-    print_tr "tr_while" (print_while cond body)
+    trace_tr "tr_while" (print_while cond body)
   let tr_for var lo hi body =
-    print_tr "tr_for" (print_for var lo hi body)
+    trace_tr "tr_for" (print_for var lo hi body)
   let tr_break br loop =
     let mark = match loop with
       | Some _ -> "inside"
@@ -77,20 +76,20 @@ module Semant = struct
       mark (print_break br)
 
   let tr_let decs body =
-    print_tr "tr_let" (print_let decs body)
+    trace_tr "tr_let" (print_let decs body)
   let tr_array typ size init =
-    print_tr "tr_array" (print_array typ size init)
+    trace_tr "tr_array" (print_array typ size init)
 
   let trans_decs decs =
     trace @@ fun m -> m ">>> trans_decs:\n%s" (print_decs decs)
   let trans_type_decs tys =
     trace @@ fun m -> m ">>> trans_type_decs:\n%s" (print_type_decs tys)
   let trans_fun_decs fs =
-    print_tr "trans_fun" (print_fun_decs fs)
+    trace_tr "trans_fun" (print_fun_decs fs)
   let trans_fun_head fun_dec =
-    print_tr "trans_fun_head" (print_fun_dec fun_dec)
+    trace_tr "trans_fun_head" (print_fun_dec fun_dec)
   let trans_var_dec var =
-    print_tr "trans_var_dec" (print_var_dec var)
+    trace_tr "trans_var_dec" (print_var_dec var)
 
   let ret_ty ty =
     trace @@ T.(fun m -> m "<-- %s (%s)" (to_string ty) (to_string (~! ty)))
@@ -116,3 +115,18 @@ module Semant = struct
       (print_var_dec var)
       (T.to_string init_ty)
 end
+
+(* TODO: Report only enabled sources *)
+let mk_reporter cfg =
+  let open Config in
+  let report src level ~over k msgf =
+    let app = Format.std_formatter in
+    let dst = Format.err_formatter in
+    let k _ = over (); k () in
+    msgf @@ fun ?header ?tags fmt ->
+    (* [ppf] is our pretty-printing formatter
+       see https://ocaml.org/learn/tutorials/format.html#Most-general-pretty-printing-using-fprintf for deatils *)
+    let ppf = if level = Logs.App then app else dst in
+    Format.kfprintf k ppf ("%a@[" ^^ fmt ^^ "@]@.") Logs_fmt.pp_header (level, header)
+  in
+  { Logs.report = report }
