@@ -25,14 +25,14 @@ let not_found name sym v =
   id_error sym msg
 
 let look entry env sym =
-  Trace.Symbol.look (entry_abbr entry) sym;
+  Trace.SymbolTable.look (entry_abbr entry) sym;
   let key = sym.L.value in
   match find env key with
   | Some v -> v
   | None -> not_found (entry_string entry) sym key.name
 
 let bind entry env sym data =
-  Trace.Symbol.bind (entry_abbr entry) sym;
+  Trace.SymbolTable.bind (entry_abbr entry) sym;
   set env ~key:sym.L.value ~data
 
 let look_var e s = look Var e s

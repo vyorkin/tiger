@@ -1,3 +1,5 @@
+open Core_kernel
+
 module S = Symbol
 
 (* We use the word "temporary" to mean a value that
@@ -14,9 +16,7 @@ type label = Symbol.t [@@deriving show]
 
 let mk =
   let idx = ref (-1) in
-  fun () ->
-    incr idx;
-    !idx
+  fun () -> incr idx; !idx
 
 let mk_label name =
   let idx = ref (-1) in
@@ -25,5 +25,4 @@ let mk_label name =
     S.mk s
   | None ->
     incr idx;
-    let name = string_of_int !idx in
-    S.mk name
+    !idx |> Int.to_string |> S.mk

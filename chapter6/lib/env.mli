@@ -5,8 +5,11 @@ module ST = Symbol_table
 
 (** Variable entry *)
 type var_entry = {
-  access: Translate.access; (** Describes how to access the variable **)
-  ty: T.t (** Type of the variable *)
+  (** Describes how to access the variable.Basically it is
+      location (in memory/frame or in a register) and [Translate.level] *)
+  access: Translate.access;
+  (** Type of the variable *)
+  ty: T.t
 }
 
 (** Function entry *)

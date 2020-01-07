@@ -17,7 +17,7 @@ type source =
 (* Note that in the [logs] lib terminology "source" defines a
    named unit of logging whose reporting level can be set independently *)
 
-module Symbol = struct
+module SymbolTable = struct
   let src = Logs.Src.create "tig.symbol" ~doc:"Symbol table"
   let trace op name sym =
     Logs.debug ~src (fun m ->
@@ -27,9 +27,9 @@ module Symbol = struct
   let look name sym = trace "==>" name sym
 end
 
-module Semant = struct
+module SemanticAnalysis = struct
   open Syntax
-  open Syntax.Printer
+  open Syntax_printer
 
   let src = Logs.Src.create "tig.semant" ~doc:"Semantic analysis"
   let trace f = Logs.debug ~src (fun m -> f (m ~header:"semant"))
@@ -114,6 +114,35 @@ module Semant = struct
     trace @@ fun m -> m "!!! (init) %s : %s"
       (print_var_dec var)
       (T.to_string init_ty)
+end
+
+module StackFrame = struct
+  let src = Logs.Src.create "tig.frame" ~doc:"Stack frames"
+  let trace f = Logs.debug ~src (fun m -> f (m ~header:"frame"))
+
+  let mk frame =
+    trace @@ fun m -> m " mk: \n%s" (Frame.show frame)
+end
+
+module Translation = struct
+  open Translate
+
+  let src = Logs.Src.create "tig.translate" ~doc:"Translation"
+  let trace f = Logs.debug ~src (fun m -> f (m ~header:"translate"))
+
+  let new_level level =
+    let path =
+      level
+      |> stack_frames_path
+      |> List.map ~f:Int.to_string
+      |> String.concat ~sep:"->"
+    in
+    StackFrame.mk level.frame;
+    trace @@ fun m -> m " new_level: %s" path
+
+  let alloc_local access =
+    let (lev, acc) = access in
+    trace @@ fun m -> m " alloc_local: %d\n%s" (Frame.id lev.frame) (Frame.show_access acc)
 end
 
 (* TODO: Report only enabled sources *)

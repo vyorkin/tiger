@@ -2,7 +2,7 @@ module S = Symbol
 module L = Location
 module T = Type
 
-module Symbol : sig
+module SymbolTable : sig
   (** Trace lookup *)
   val look : string -> S.t L.t -> unit
 
@@ -10,7 +10,7 @@ module Symbol : sig
   val bind : string -> S.t L.t -> unit
 end
 
-module Semant : sig
+module SemanticAnalysis : sig
   open Syntax
 
   val trans_prog : expr -> unit
@@ -46,6 +46,19 @@ module Semant : sig
   val assert_op : expr L.t -> expr L.t -> unit
   val assert_fun_body : fun_dec L.t -> T.t -> unit
   val assert_init : var_dec L.t -> T.t -> unit
+end
+
+module StackFrame : sig
+  open Frame
+
+  val mk : t -> unit
+end
+
+module Translation : sig
+  open Translate
+
+  val new_level : level -> unit
+  val alloc_local : access -> unit
 end
 
 val mk_reporter : Config.t -> Logs.reporter

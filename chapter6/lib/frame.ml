@@ -28,9 +28,11 @@ type access =
   | InFrame of int
   (* Register location *)
   | InReg of Temp.t
-[@@deriving show]
+[@@deriving show { with_path = false }]
 
 type t = {
+  (* Frame unique id (used for tracing) *)
+  id : int;
   (* Label at which the function's machine code begins *)
   label: Temp.label;
   (* Locations of all the formals *)
@@ -39,7 +41,7 @@ type t = {
   locals: int ref;
   (* Instructions required to implement the "view shift" *)
   instrs: Instruction.t list;
-} [@@deriving show]
+} [@@deriving show { with_path = false }]
 
 (* Word size in bytes *)
 let word_size = 64 / 8 (* = 8 bytes *)
@@ -78,19 +80,26 @@ let mk_access i = function
   | true -> InFrame ((i + 1) * (-word_size)) (* escapes -- alloc in frame *)
   | false -> InReg (Temp.mk ()) (* doesn't escape -- use temp (register) *)
 
+let next_id =
+  let n = ref (-1) in
+  fun () -> incr n; !n
+
 (* Makes a new stack frame *)
-let mk label formals =
+let mk ~label ~formals =
+  let id = next_id () in
   let formals = List.mapi mk_access formals in
   let locals = ref 0 in
   (* Don't know yet what instruction we need,
      so just leave it empty for now *)
   let instrs = [] in
-  { label; formals; locals; instrs }
+  { id; label; formals; locals; instrs }
+
+let id { id; _ } = id
 
 (* For each formal parameter:
-   - how the parameters will be seen from inside the
+   - How the parameters will be seen from inside the
      function (in a register or in a frame location)
-   - what instructions must be produced to
+   - What instructions must be produced to
      implement the "view shift" *)
 
 let formals { formals; _ } = formals
@@ -119,8 +128,7 @@ let formals { formals; _ } = formals
 *)
 
 (* Some local variables are kept in frames;
-   others are kept in registers. To allocate those kept in
-   frames we use the [alloc_local] function *)
+   others are kept in registers *)
 
 (* For example, to allocate two local variables on the Sparc,
    [allocLocal] would be called twice, returning successively:
@@ -130,7 +138,8 @@ let formals { formals; _ } = formals
 (* Local variables that do not escape can be allocated in a register,
    escaping variables must be allocated in the frame *)
 
-let alloc_local { locals; _ } = function
+let alloc_local { locals; _ } ~escapes =
+  match escapes with
   | true ->
 		incr locals;
     let offset = (!locals + 1) * (-word_size) in

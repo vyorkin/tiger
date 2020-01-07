@@ -13,7 +13,7 @@ type expr_ty = {
 }
 
 let ret ty =
-  Trace.Semant.ret_ty ty;
+  Trace.SemanticAnalysis.ret_ty ty;
   { expr = (); ty }
 
 let ret_int = ret T.Int
@@ -36,7 +36,7 @@ let missing_field_error t name =
     (T.to_string t) (name.L.value.S.name)
 
 let rec trans_prog expr =
-  Trace.Semant.trans_prog expr;
+  Trace.SemanticAnalysis.trans_prog expr;
   let env = Env.mk () in
   ignore @@ trans_expr (L.dummy expr) ~env
 
@@ -44,7 +44,7 @@ and trans_expr expr ~env =
   let open Syntax in
 
   let rec assert_ty t expr ~env =
-    Trace.Semant.assert_ty t expr;
+    Trace.SemanticAnalysis.assert_ty t expr;
     let { ty; _ } = tr_expr expr ~env in
     if T.(~!ty <> ~!t)
     then type_mismatch_error3 expr t ty
@@ -53,7 +53,7 @@ and trans_expr expr ~env =
   and assert_unit expr ~env = assert_ty T.Unit expr ~env
 
   and tr_expr expr ~env =
-    Trace.Semant.tr_expr expr;
+    Trace.SemanticAnalysis.tr_expr expr;
     (* Push the current [expr] to the [path] stack *)
     let env = Env.enter_expr env expr in
     match expr.L.value with
@@ -75,7 +75,7 @@ and trans_expr expr ~env =
     | Array (ty, size, init) -> tr_array ty size init ~env
 
   and tr_break br ~env =
-    Trace.Semant.tr_break br env.loop;
+    Trace.SemanticAnalysis.tr_break br env.loop;
     match env.loop with
     | Some _ ->
       ret_unit
@@ -83,7 +83,7 @@ and trans_expr expr ~env =
       syntax_error br "unexpected break statement"
 
   and tr_call f args ~env =
-    Trace.Semant.tr_call f args;
+    Trace.SemanticAnalysis.tr_call f args;
     match ST.look_fun env.venv f with
     | VarEntry { ty; _ } ->
       type_error f @@ sprintf
@@ -101,7 +101,7 @@ and trans_expr expr ~env =
   (* In our language binary operators work only with
      integer operands, except for (=) and (<>) *)
   and tr_op expr l r op ~env =
-    Trace.Semant.tr_op l r op;
+    Trace.SemanticAnalysis.tr_op l r op;
     match op with
     | Syntax.Eq | Syntax.Neq ->
       assert_comparison expr l r ~env
@@ -121,7 +121,7 @@ and trans_expr expr ~env =
     ret_int
 
   and tr_assign var expr ~env =
-    Trace.Semant.tr_assign var expr;
+    Trace.SemanticAnalysis.tr_assign var expr;
     let { ty = var_ty; _ } = tr_var var ~env in
     let { ty = expr_ty; _ } = tr_expr expr ~env in
     if T.(var_ty = expr_ty)
@@ -133,14 +133,14 @@ and trans_expr expr ~env =
   (* Type of a sequence is a type of its last expression,
      but we need to check all previous expressions too *)
   and tr_seq exprs ~env =
-    Trace.Semant.tr_seq exprs;
+    Trace.SemanticAnalysis.tr_seq exprs;
     List.fold_left
       ~f:(fun _ expr -> tr_expr expr ~env)
       ~init:ret_unit
       exprs
 
   and tr_cond cond t f ~env =
-    Trace.Semant.tr_cond cond t f;
+    Trace.SemanticAnalysis.tr_cond cond t f;
     assert_int cond ~env;
     let { ty = t_ty; _ } = tr_expr t ~env in
     match f with
@@ -157,18 +157,22 @@ and trans_expr expr ~env =
           (T.to_string t_ty) (T.to_string f_ty)
 
   and tr_while cond body ~env =
-    Trace.Semant.tr_while cond body;
+    Trace.SemanticAnalysis.tr_while cond body;
     assert_int cond ~env;
     assert_unit body ~env:(Env.enter_loop env "while");
     ret_unit
 
   and tr_for var lo hi body ~env =
-    Trace.Semant.tr_for var lo hi body;
+    Trace.SemanticAnalysis.tr_for var lo hi body;
     assert_int lo ~env;
     assert_int hi ~env;
-    (* Add iterator var to the term-level env  *)
-
-    let access = Translate.alloc_local env.level true in
+    (* Add iterator var to the term-level env.
+       Assume it escapes for now (as mentioned in the book)*)
+    let escapes = true in
+    (* Create a new location (in memory/frame or in a register) for
+       the iterator variable at the current nesting level *)
+    let access = Translate.alloc_local ~level:env.level ~escapes in
+    Trace.Translation.alloc_local access;
     let entry = Env.VarEntry { access; ty = T.Int } in
     let venv' = ST.bind_var env.venv var entry in
     let env = Env.enter_loop { env with venv = venv' } "for" in
@@ -179,7 +183,7 @@ and trans_expr expr ~env =
      the let expression modifies both:
      type-level (tenv) and term-level (value-level/venv) environments *)
   and tr_let decs body ~env =
-    Trace.Semant.tr_let decs body;
+    Trace.SemanticAnalysis.tr_let decs body;
     (* Update env's according to declarations *)
     let env' = trans_decs decs ~env in
     (* Then translate the body expression using
@@ -188,7 +192,7 @@ and trans_expr expr ~env =
   (* Then the new environments are discarded *)
 
   and tr_record_field rec_typ tfields (name, expr) ~env =
-    Trace.Semant.tr_record_field name expr rec_typ;
+    Trace.SemanticAnalysis.tr_record_field name expr rec_typ;
     (* Find a type of the field with [name] *)
     match List.Assoc.find tfields ~equal:S.equal name.L.value with
     | Some ty_field ->
@@ -200,7 +204,7 @@ and trans_expr expr ~env =
 
   and tr_record ty_name vfields ~env =
     let open T in
-    Trace.Semant.tr_record ty_name vfields;
+    Trace.SemanticAnalysis.tr_record ty_name vfields;
     (* Get the record type definition *)
     let rec_typ = ST.look_typ env.tenv ty_name in
     match ~!rec_typ with
@@ -215,7 +219,7 @@ and trans_expr expr ~env =
 
   and tr_array typ size init ~env =
     let open T in
-    Trace.Semant.tr_array typ size init;
+    Trace.SemanticAnalysis.tr_array typ size init;
     assert_int size ~env;
     let { ty = init_tn; _ } = tr_expr init ~env in
     (* Find the type of this particular array *)
@@ -233,7 +237,7 @@ and trans_expr expr ~env =
         "\"%s\" is not array" (T.to_string arr_ty)
 
   and tr_var var ~env =
-    Trace.Semant.tr_var var;
+    Trace.SemanticAnalysis.tr_var var;
     match var.L.value with
     | SimpleVar var ->
       tr_simple_var var ~env
@@ -243,7 +247,7 @@ and trans_expr expr ~env =
       tr_subscript_var var sub ~env
 
   and tr_simple_var var ~env =
-    Trace.Semant.tr_simple_var var;
+    Trace.SemanticAnalysis.tr_simple_var var;
     match ST.look_var env.venv var with
     | VarEntry { ty; _ }  ->
       T.(ret ~!ty)
@@ -257,7 +261,7 @@ and trans_expr expr ~env =
         signature (T.to_string result)
 
   and tr_field_var var field ~env =
-    Trace.Semant.tr_field_var var field;
+    Trace.SemanticAnalysis.tr_field_var var field;
     (* Find a type of the record variable *)
     let rec_ty = tr_var var ~env in
     (* Lets see if its actually a record *)
@@ -275,7 +279,7 @@ and trans_expr expr ~env =
         (T.to_string rec_ty.ty)
 
   and tr_subscript_var var sub ~env =
-    Trace.Semant.tr_subscript_var var sub;
+    Trace.SemanticAnalysis.tr_subscript_var var sub;
     let arr_ty = tr_var var ~env in
     match arr_ty.ty with
     | Array (tn, _) ->
@@ -288,7 +292,7 @@ and trans_expr expr ~env =
   tr_expr expr ~env
 
 and trans_decs decs ~env =
-  Trace.Semant.trans_decs decs;
+  Trace.SemanticAnalysis.trans_decs decs;
   List.fold_left decs
     ~f:(fun env dec -> trans_dec dec ~env)
     ~init:env
@@ -316,7 +320,7 @@ and trans_type_decs tys ~env =
     let t = trans_ty tenv' typ in
     tn := Some t
   in
-  Trace.Semant.trans_type_decs tys;
+  Trace.SemanticAnalysis.trans_type_decs tys;
   (* Resolve the (possibly mutually recursive) types *)
   List.iter2_exn (List.rev tns) tys ~f:resolve_ty;
   { env with tenv = tenv' }
@@ -328,7 +332,7 @@ and trans_fun_decs fs ~env =
   let open Env in
   (* Translates a function declaration and updates the [venv] *)
   let tr_fun_head (sigs, venv) fun_dec =
-    Trace.Semant.trans_fun_head fun_dec;
+    Trace.SemanticAnalysis.trans_fun_head fun_dec;
     let { fun_name; params; result_typ; _ } = fun_dec.L.value in
     (* Translate function arguments *)
     let tr_arg f = f.name, ST.look_typ env.tenv f.typ in
@@ -343,8 +347,10 @@ and trans_fun_decs fs ~env =
     let esc_formals = List.map args ~f:(fun _ -> true) in
     (* Generate a new label *)
     let label = Temp.mk_label None in
-    (* Create a new "nesting level" *)
-    let level = Translate.mk (Some env.level) label esc_formals in
+    (* Create a new "nesting level". *)
+    let parent = Some env.level in
+    let level = Translate.new_level ~parent ~label ~formals:esc_formals in
+    Trace.Translation.new_level level;
     (* Get types of the formal parameters *)
     let formals = List.map args ~f:snd in
     let entry = FunEntry { level; label; formals; result } in
@@ -353,12 +359,14 @@ and trans_fun_decs fs ~env =
   (* First, we add all the function entries to the [venv] *)
   let (sigs, venv') = List.fold_left fs ~f:tr_fun_head ~init:([], env.venv) in
   let assert_fun_body (args, result) fun_dec =
-    Trace.Semant.assert_fun_body fun_dec result;
+    Trace.SemanticAnalysis.assert_fun_body fun_dec result;
     (* Here, we build another [venv''] to be used for body processing
        it should have all the arguments in it *)
     let add_var e (name, ty) =
       (* lets just assume that each variable escapes for now *)
-      let access = Translate.alloc_local env.level true in
+      let escapes = true in
+      let access = Translate.alloc_local ~level:env.level ~escapes in
+      Trace.Translation.alloc_local access;
       let entry = VarEntry { ty; access } in
       ST.bind_var e name entry
     in
@@ -371,7 +379,7 @@ and trans_fun_decs fs ~env =
         "type of the body expression doesn't match the declared result type, "
         body result body_ty.ty;
   in
-  Trace.Semant.trans_fun_decs fs;
+  Trace.SemanticAnalysis.trans_fun_decs fs;
   (* Now, lets check the bodies *)
   List.iter2_exn (List.rev sigs) fs ~f:assert_fun_body;
   { env with venv = venv' }
@@ -392,12 +400,15 @@ and assert_init var init_ty ~env =
 
 and trans_var_dec var ~env =
   let open Syntax in
-  Trace.Semant.trans_var_dec var;
+  Trace.SemanticAnalysis.trans_var_dec var;
   let { var_name; init; _ } = var.L.value in
   let { ty = init_ty; _ } = trans_expr init ~env in
   assert_init var init_ty ~env;
-  (* Add a new var to the term-level env *)
-  let access = Translate.alloc_local env.level true in
+  (* Add a new var to the term-level env.
+     Assume it escapes for now. *)
+  let escapes = true in
+  let access = Translate.alloc_local ~level:env.level ~escapes in
+  Trace.Translation.alloc_local access;
   let entry = Env.VarEntry { ty = init_ty; access } in
   let venv' = ST.bind_var env.venv var_name entry in
   { env with venv = venv' }
@@ -406,7 +417,7 @@ and trans_var_dec var ~env =
    digested type description that we keep in the [tenv] *)
 and trans_ty tenv typ =
   let open Syntax in
-  Trace.Semant.trans_ty typ;
+  Trace.SemanticAnalysis.trans_ty typ;
   match typ with
   | NameTy t ->
     ST.look_typ tenv t
