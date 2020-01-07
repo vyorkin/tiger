@@ -1,3 +1,5 @@
+open Core_kernel
+
 (* Every target machine architecture will have a
    different standard stack frame layout. But we don't want the
    specifics of any particular machine intruding on the
@@ -20,7 +22,6 @@
    - https://wiki.osdev.org/Calling_Conventions
 *)
 
-
 (* Location of a formal parameter (function argument) or
    a local variable that may be placed in a frame or in a register *)
 type access =
@@ -38,7 +39,7 @@ type t = {
   (* Locations of all the formals *)
   formals: access list;
   (* Number of locals allocated so far *)
-  locals: int ref;
+  mutable locals: int;
   (* Instructions required to implement the "view shift" *)
   instrs: Instruction.t list;
 } [@@deriving show { with_path = false }]
@@ -74,21 +75,21 @@ let caller_regs = [r10; r11]
 (* Registers that are preserved by the callee *)
 let callee_regs = [rbx; r12; r13; r14; r15]
 
+let next_id =
+  let n = ref (-1) in
+  fun () -> incr n; !n
+
 (* Creates a new location for a formal parameter or
    a local variable, given its index and [esc] flag *)
 let mk_access i = function
   | true -> InFrame ((i + 1) * (-word_size)) (* escapes -- alloc in frame *)
   | false -> InReg (Temp.mk ()) (* doesn't escape -- use temp (register) *)
 
-let next_id =
-  let n = ref (-1) in
-  fun () -> incr n; !n
-
 (* Makes a new stack frame *)
 let mk ~label ~formals =
   let id = next_id () in
-  let formals = List.mapi mk_access formals in
-  let locals = ref 0 in
+  let formals = List.mapi formals ~f:mk_access in
+  let locals = 0 in
   (* Don't know yet what instruction we need,
      so just leave it empty for now *)
   let instrs = [] in
@@ -138,11 +139,29 @@ let formals { formals; _ } = formals
 (* Local variables that do not escape can be allocated in a register,
    escaping variables must be allocated in the frame *)
 
-let alloc_local { locals; _ } ~escapes =
+let alloc_local frame ~escapes =
   match escapes with
   | true ->
-		incr locals;
-    let offset = (!locals + 1) * (-word_size) in
+		frame.locals <- frame.locals + 1;
+    let offset = (frame.locals + 1) * -word_size in
     InFrame offset
   | false ->
     InReg (Temp.mk ())
+
+module Printer = struct
+  let print_access = function
+    | InFrame offset -> sprintf "F%d" offset
+    | InReg temp -> sprintf "R%s" (Temp.show temp)
+
+  let print_frame frame =
+    let formals = List.map frame.formals ~f:print_access in
+    let instrs = List.map frame.instrs ~f:Instruction.print in
+    let lines =
+      [ "     id: " ^ Int.to_string frame.id
+      ; "  label: " ^ Temp.print_label frame.label
+      ; "formals: " ^ String.concat formals ~sep:" "
+      ; " locals: " ^ Int.to_string frame.locals
+      ; " instrs: " ^ String.concat instrs ~sep:" "
+      ]
+    in String.concat lines ~sep:"\n"
+end

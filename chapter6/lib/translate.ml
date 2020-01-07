@@ -21,9 +21,8 @@ type access = level * Frame.access [@@deriving show]
 
 let outermost =
   let label = Temp.mk_label None in
-  { parent = None;
-    frame = Frame.mk ~label ~formals:[];
-  }
+  let frame = Frame.mk ~label ~formals:[] in
+  { parent = None; frame }
 
 let rec stack_frames level =
   match level.parent with

@@ -10,9 +10,11 @@ module S = Symbol
 
    This module manages these two distinct sets of names *)
 
-type t = int [@@deriving show]
+type t = int
+[@@deriving show { with_path = false }]
 
-type label = Symbol.t [@@deriving show]
+type label = Symbol.t
+[@@deriving show { with_path = false }]
 
 let mk =
   let idx = ref (-1) in
@@ -26,3 +28,6 @@ let mk_label name =
   | None ->
     incr idx;
     !idx |> Int.to_string |> S.mk
+
+let print_label s =
+  Symbol.(sprintf "%s <#%d>" s.name s.id)

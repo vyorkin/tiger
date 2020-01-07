@@ -3,7 +3,7 @@
 default: exe
 
 exe:
-	dune exe bin/driver.exe -- ../book/testcases/test6.tig
+	dune exe bin/driver.exe -- ../testcases/translation/nested0.tig
 
 test:
 	dune exe ./test/testsuite.exe

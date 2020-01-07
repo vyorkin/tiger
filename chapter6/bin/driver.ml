@@ -18,6 +18,7 @@ let run_tiger fn ch =
     eprintf "%s\n" (Err.to_string err loc msg)
 
 let run_file fn () =
+  (* Fmt.set_style_renderer Format.std_formatter `Ansi_tty; *)
   Fmt_tty.setup_std_outputs ();
   Logs.set_level @@ Some Logs.Debug;
   let trace_sources = Trace_source.[

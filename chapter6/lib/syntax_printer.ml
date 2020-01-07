@@ -189,7 +189,7 @@ and print_while cond body =
     (print_expr body.L.value)
 
 and print_for var lo hi body =
-  sprintf "\nfor %s := %s to %s do\n  %s"
+  sprintf "\nfor %s := %s to %s do  %s"
     (print_symbol var)
     (print_expr lo.L.value)
     (print_expr hi.L.value)

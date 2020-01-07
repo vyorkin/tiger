@@ -355,10 +355,10 @@ and trans_fun_decs fs ~env =
     let formals = List.map args ~f:snd in
     let entry = FunEntry { level; label; formals; result } in
     let venv' = ST.bind_fun venv fun_name entry in
-    (args, result) :: sigs, venv' in
+    (level, args, result) :: sigs, venv' in
   (* First, we add all the function entries to the [venv] *)
   let (sigs, venv') = List.fold_left fs ~f:tr_fun_head ~init:([], env.venv) in
-  let assert_fun_body (args, result) fun_dec =
+  let assert_fun_body (level', args, result) fun_dec =
     Trace.SemanticAnalysis.assert_fun_body fun_dec result;
     (* Here, we build another [venv''] to be used for body processing
        it should have all the arguments in it *)
@@ -371,7 +371,7 @@ and trans_fun_decs fs ~env =
       ST.bind_var e name entry
     in
     let venv'' = List.fold_left args ~init:venv' ~f:add_var in
-    let env' = { env with venv = venv'' } in
+    let env' = { env with level = level'; venv = venv'' } in
     let { body; _ } = fun_dec.L.value in
     let body_ty : expr_ty = trans_expr body ~env:env' in
     if T.(body_ty.ty <> result)

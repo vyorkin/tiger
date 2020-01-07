@@ -117,15 +117,18 @@ module SemanticAnalysis = struct
 end
 
 module StackFrame = struct
+  open Frame.Printer
+
   let src = Logs.Src.create "tig.frame" ~doc:"Stack frames"
   let trace f = Logs.debug ~src (fun m -> f (m ~header:"frame"))
 
   let mk frame =
-    trace @@ fun m -> m " mk: \n%s" (Frame.show frame)
+    trace @@ fun m -> m " mk: \n%s" (print_frame frame)
 end
 
 module Translation = struct
   open Translate
+  open Frame.Printer
 
   let src = Logs.Src.create "tig.translate" ~doc:"Translation"
   let trace f = Logs.debug ~src (fun m -> f (m ~header:"translate"))
@@ -142,15 +145,15 @@ module Translation = struct
 
   let alloc_local access =
     let (lev, acc) = access in
-    trace @@ fun m -> m " alloc_local: %d\n%s" (Frame.id lev.frame) (Frame.show_access acc)
+    trace @@ fun m -> m " alloc_local #%d: %s" (Frame.id lev.frame) (print_access acc)
 end
 
 (* TODO: Report only enabled sources *)
 let mk_reporter cfg =
   let open Config in
+  let app = Format.std_formatter in
+  let dst = Format.err_formatter in
   let report src level ~over k msgf =
-    let app = Format.std_formatter in
-    let dst = Format.err_formatter in
     let k _ = over (); k () in
     msgf @@ fun ?header ?tags fmt ->
     (* [ppf] is our pretty-printing formatter
