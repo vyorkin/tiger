@@ -28,7 +28,7 @@ module SemanticAnalysis : sig
   val tr_assign : var L.t -> expr L.t -> unit
   val tr_cond : expr L.t -> expr L.t -> (expr L.t) option -> unit
   val tr_while : expr L.t -> expr L.t -> unit
-  val tr_for : S.t L.t -> expr L.t -> expr L.t -> expr L.t -> unit
+  val tr_for : S.t L.t -> expr L.t -> expr L.t -> expr L.t -> bool -> unit
   val tr_break : unit L.t -> S.t option -> unit
   val tr_let : dec list -> expr L.t -> unit
   val tr_array : S.t L.t -> expr L.t -> expr L.t -> unit
@@ -59,6 +59,10 @@ module Translation : sig
 
   val new_level : level -> unit
   val alloc_local : access -> unit
+end
+
+module Escaping : sig
+  val escapes : S.t L.t -> int -> unit
 end
 
 val mk_reporter : Config.t -> Logs.reporter

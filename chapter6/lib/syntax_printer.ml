@@ -28,8 +28,8 @@ let rec print_expr = function
     print_cond cond t f
   | While (cond, body) ->
     print_while cond body
-  | For (var, lo, hi, body, _) ->
-    print_for var lo hi body
+  | For (var, lo, hi, body, escapes) ->
+    print_for var lo hi body !escapes
   | Break br ->
     print_break br
   | Let (decs, body) ->
@@ -51,7 +51,10 @@ and print_fields fields ~sep =
   |> String.concat ~sep
 
 and print_field field =
-  sprintf "%s : %s" (print_symbol field.name) (print_symbol field.typ)
+  sprintf "%s%s : %s"
+    (print_symbol field.name)
+    (print_esc field.escapes)
+    (print_symbol field.typ)
 
 and print_int x =
   Int.to_string x.L.value
@@ -147,9 +150,10 @@ and print_fun_dec fun_dec =
 
 and print_var_dec var =
   let v = var.L.value in
-  sprintf "%s%s := %s"
+  sprintf "%s%s%s := %s"
     (print_symbol v.var_name)
     (Option.value_map v.var_typ ~default:"" ~f:print_symbol)
+    (print_esc var.L.value.escapes)
     (print_expr v.init.L.value)
 
 and print_seq exprs =
@@ -188,9 +192,10 @@ and print_while cond body =
     (print_expr cond.L.value)
     (print_expr body.L.value)
 
-and print_for var lo hi body =
-  sprintf "\nfor %s := %s to %s do  %s"
+and print_for var lo hi body escapes =
+  sprintf "\nfor %s%s := %s to %s do %s"
     (print_symbol var)
+    (print_esc escapes)
     (print_expr lo.L.value)
     (print_expr hi.L.value)
     (print_expr body.L.value)
@@ -212,3 +217,6 @@ and print_array typ size init =
 and print_symbol sym =
   let s = sym.L.value in
   sprintf "%s <#%d>" s.name s.id
+
+and print_esc esc =
+  if esc then " (+)" else " (-)"

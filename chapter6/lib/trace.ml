@@ -18,7 +18,7 @@ type source =
    named unit of logging whose reporting level can be set independently *)
 
 module SymbolTable = struct
-  let src = Logs.Src.create "tig.symbol" ~doc:"Symbol table"
+  let src = Logs.Src.create "tig.symbol-table" ~doc:"Symbol table"
   let trace op name sym =
     Logs.debug ~src (fun m ->
         m ~header:"symbol" "%s %s: %s" op name (S.to_string sym))
@@ -31,7 +31,7 @@ module SemanticAnalysis = struct
   open Syntax
   open Syntax_printer
 
-  let src = Logs.Src.create "tig.semant" ~doc:"Semantic analysis"
+  let src = Logs.Src.create "tig.semantic-analysis" ~doc:"Semantic analysis"
   let trace f = Logs.debug ~src (fun m -> f (m ~header:"semant"))
   let trace_tr name expr = trace @@ fun m -> m ">>> %s: %s" name expr
 
@@ -65,8 +65,8 @@ module SemanticAnalysis = struct
     trace_tr "tr_cond" (print_cond cond t f)
   let tr_while cond body =
     trace_tr "tr_while" (print_while cond body)
-  let tr_for var lo hi body =
-    trace_tr "tr_for" (print_for var lo hi body)
+  let tr_for var lo hi body escapes =
+    trace_tr "tr_for" (print_for var lo hi body escapes)
   let tr_break br loop =
     let mark = match loop with
       | Some _ -> "inside"
@@ -119,7 +119,7 @@ end
 module StackFrame = struct
   open Frame.Printer
 
-  let src = Logs.Src.create "tig.frame" ~doc:"Stack frames"
+  let src = Logs.Src.create "tig.stack-frame" ~doc:"Stack frames"
   let trace f = Logs.debug ~src (fun m -> f (m ~header:"frame"))
 
   let mk frame =
@@ -130,7 +130,7 @@ module Translation = struct
   open Translate
   open Frame.Printer
 
-  let src = Logs.Src.create "tig.translate" ~doc:"Translation"
+  let src = Logs.Src.create "tig.translation" ~doc:"Translation"
   let trace f = Logs.debug ~src (fun m -> f (m ~header:"translate"))
 
   let new_level level =
@@ -146,6 +146,18 @@ module Translation = struct
   let alloc_local access =
     let (lev, acc) = access in
     trace @@ fun m -> m " alloc_local #%d: %s" (Frame.id lev.frame) (print_access acc)
+end
+
+module Escaping = struct
+  open Syntax
+  open Syntax_printer
+
+  let src = Logs.Src.create "tig.escaping" ~doc:"Calculating escapes"
+  let trace f = Logs.debug ~src (fun m -> f (m ~header:"escape"))
+
+  let escapes sym depth =
+    trace @@ fun m -> m " %s escapes at %d"
+      (print_symbol sym) depth
 end
 
 (* TODO: Report only enabled sources *)

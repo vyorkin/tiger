@@ -154,7 +154,7 @@ let while_loop :=
 let for_loop :=
   "for"; i = "id"; ":="; lo = loc(expr);
   "to"; hi = loc(expr); "do"; body = loc(expr);
-  { For(L.mk (S.mk i) $loc, lo, hi, body, ref true) }
+  { For(L.mk (S.mk i) $loc, lo, hi, body, ref false) }
 
 let conditional :=
   | "if"; cond = loc(expr); "then"; t = loc(expr); "else"; f = loc(expr);
@@ -200,14 +200,14 @@ let ty_fields :=
 
 let ty_field :=
   name = symbol; ":"; typ = symbol;
-  { { name; typ; escape = ref true } }
+  { { name; typ; escapes = false } }
 
 (* Variables *)
 let var_dec ==
   | "var"; var_name = symbol; ":="; init = loc(expr);
-    { { var_name; var_typ = None; init; escape = ref true } }
+    { { var_name; var_typ = None; init; escapes = false } }
   | "var"; var_name = symbol; ":"; vt = symbol; ":="; init = loc(expr);
-    { { var_name; var_typ = Some vt; init; escape = ref true } }
+    { { var_name; var_typ = Some vt; init; escapes = false } }
 
 (* Record and array creation *)
 let create_rec :=

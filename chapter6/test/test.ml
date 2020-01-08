@@ -6,9 +6,9 @@ open Ch6
 let run_file fn ch =
   let lexbuf = Lexbuf.mk fn ch in
   try
-    lexbuf
-    |> Parser.main Lexer.read
-    |> Semant.trans_prog;
+    let expr = Parser.main Lexer.read lexbuf in
+    Escape.traverse_prog expr;
+    Semant.trans_prog expr;
     pass
   with
   | Lexer.LexingError msg ->

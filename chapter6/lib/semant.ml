@@ -69,7 +69,7 @@ and trans_expr expr ~env =
     | Assign (var, expr) -> tr_assign var expr ~env
     | If (cond, t, f) -> tr_cond cond t f ~env
     | While (cond, body) -> tr_while cond body ~env
-    | For (var, lo, hi, body, _) -> tr_for var lo hi body ~env
+    | For (var, lo, hi, body, escapes) -> tr_for var lo hi body !escapes ~env
     | Break br -> tr_break br ~env
     | Let (decs, body) -> tr_let decs body ~env
     | Array (ty, size, init) -> tr_array ty size init ~env
@@ -162,13 +162,10 @@ and trans_expr expr ~env =
     assert_unit body ~env:(Env.enter_loop env "while");
     ret_unit
 
-  and tr_for var lo hi body ~env =
-    Trace.SemanticAnalysis.tr_for var lo hi body;
+  and tr_for var lo hi body escapes ~env =
+    Trace.SemanticAnalysis.tr_for var lo hi body escapes;
     assert_int lo ~env;
     assert_int hi ~env;
-    (* Add iterator var to the term-level env.
-       Assume it escapes for now (as mentioned in the book)*)
-    let escapes = true in
     (* Create a new location (in memory/frame or in a register) for
        the iterator variable at the current nesting level *)
     let access = Translate.alloc_local ~level:env.level ~escapes in
@@ -184,12 +181,12 @@ and trans_expr expr ~env =
      type-level (tenv) and term-level (value-level/venv) environments *)
   and tr_let decs body ~env =
     Trace.SemanticAnalysis.tr_let decs body;
-    (* Update env's according to declarations *)
+    (* Update env according to declarations *)
     let env' = trans_decs decs ~env in
     (* Then translate the body expression using
        the new augmented environments *)
     trans_expr body ~env:env'
-  (* Then the new environments are discarded *)
+    (* Then the new environments are discarded *)
 
   and tr_record_field rec_typ tfields (name, expr) ~env =
     Trace.SemanticAnalysis.tr_record_field name expr rec_typ;
@@ -335,16 +332,13 @@ and trans_fun_decs fs ~env =
     Trace.SemanticAnalysis.trans_fun_head fun_dec;
     let { fun_name; params; result_typ; _ } = fun_dec.L.value in
     (* Translate function arguments *)
-    let tr_arg f = f.name, ST.look_typ env.tenv f.typ in
-    let args = List.map params ~f:tr_arg in
+    let tr_param (param : field) = param, ST.look_typ env.tenv param.typ in
+    let args = List.map params ~f:tr_param in
     (* Translate the result type *)
     let result = match result_typ with
       | None -> T.Unit
       | Some t -> ST.look_typ env.tenv t in
-    (* Lets just assume that everything escapes for now
-       (as adviced in Chapter 6 of the book), the next step
-       would be to lookup those in the [Escape.env] *)
-    let esc_formals = List.map args ~f:(fun _ -> true) in
+    let esc_formals = List.map params ~f:(fun f -> f.escapes) in
     (* Generate a new label *)
     let label = Temp.mk_label None in
     (* Create a new "nesting level". *)
@@ -358,19 +352,17 @@ and trans_fun_decs fs ~env =
     (level, args, result) :: sigs, venv' in
   (* First, we add all the function entries to the [venv] *)
   let (sigs, venv') = List.fold_left fs ~f:tr_fun_head ~init:([], env.venv) in
-  let assert_fun_body (level', args, result) fun_dec =
+  let assert_fun_body (level', params, result) fun_dec =
     Trace.SemanticAnalysis.assert_fun_body fun_dec result;
     (* Here, we build another [venv''] to be used for body processing
        it should have all the arguments in it *)
-    let add_var e (name, ty) =
-      (* lets just assume that each variable escapes for now *)
-      let escapes = true in
+    let add_param e ({ name; escapes; _ }, ty) =
       let access = Translate.alloc_local ~level:env.level ~escapes in
       Trace.Translation.alloc_local access;
       let entry = VarEntry { ty; access } in
       ST.bind_var e name entry
     in
-    let venv'' = List.fold_left args ~init:venv' ~f:add_var in
+    let venv'' = List.fold_left params ~init:venv' ~f:add_param in
     let env' = { env with level = level'; venv = venv'' } in
     let { body; _ } = fun_dec.L.value in
     let body_ty : expr_ty = trans_expr body ~env:env' in

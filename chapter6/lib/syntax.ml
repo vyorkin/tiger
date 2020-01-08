@@ -22,7 +22,7 @@ type op =
 type field = {
   name : S.t L.t;
   typ : S.t L.t;
-  escape : bool ref;
+  mutable escapes : bool;
 } [@@deriving show { with_path = false }]
 
 (* Type *)
@@ -56,7 +56,7 @@ type expr =
            expr L.t * (* from *)
            expr L.t * (* to *)
            expr L.t * (* body *)
-           bool ref (* escape *)
+           bool ref (* escapes *)
   | Break of unit L.t
   | Let of dec list * (* declarations *)
            expr L.t (* body *)
@@ -79,8 +79,8 @@ and var =
 (* Type(s), value or function(s) declaration *)
 and dec =
   | TypeDec of type_dec L.t list
-  | FunDec of fun_dec L.t list
   | VarDec of var_dec L.t
+  | FunDec of fun_dec L.t list
 [@@deriving show { with_path = false }]
 
 (* Value declaration *)
@@ -88,7 +88,7 @@ and var_dec = {
   var_name : S.t L.t;
   var_typ : S.t L.t option;
   init : expr L.t;
-  escape : bool ref;
+  mutable escapes : bool;
 } [@@deriving show { with_path = false }]
 
 (* Type declaration *)
