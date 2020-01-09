@@ -22,7 +22,7 @@ type op =
 type field = {
   name : S.t L.t;
   typ : S.t L.t;
-  mutable escapes : bool;
+  escapes : bool ref;
 } [@@deriving show { with_path = false }]
 
 (* Type *)
@@ -88,7 +88,7 @@ and var_dec = {
   var_name : S.t L.t;
   var_typ : S.t L.t option;
   init : expr L.t;
-  mutable escapes : bool;
+  escapes : bool ref;
 } [@@deriving show { with_path = false }]
 
 (* Type declaration *)

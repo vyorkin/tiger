@@ -3,7 +3,7 @@ let
     for i := 0 to n do
       let
         function nested(x : int) =
-          if x > 5 then
+          if x > (n + i) then
             break
        in
          nested(i)

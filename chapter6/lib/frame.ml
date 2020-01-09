@@ -150,8 +150,8 @@ let alloc_local frame ~escapes =
 
 module Printer = struct
   let print_access = function
-    | InFrame offset -> sprintf "F%d" offset
-    | InReg temp -> sprintf "R%s" (Temp.show temp)
+    | InFrame offset -> sprintf "F(%d)" offset
+    | InReg temp -> sprintf "R(%s)" (Temp.show temp)
 
   let print_frame frame =
     let formals = List.map frame.formals ~f:print_access in

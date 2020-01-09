@@ -52,7 +52,7 @@ let traverse_prog expr =
     | Assign (var, expr) -> tr_assign var expr ~env
     | If (cond, t, f) -> tr_cond cond t f ~env
     | While (cond, body) -> tr_while cond body ~env
-    | For (var, lo, hi, body, _) -> tr_for var lo hi body ~env
+    | For (var, lo, hi, body, escapes) -> tr_for var lo hi body escapes ~env
     | Let (decs, body) -> tr_let decs body ~env
     | Array (_, size, body) -> tr_array size body ~env
     | Nil _ | Int _ | String _ | Break _ -> ()
@@ -82,11 +82,11 @@ let traverse_prog expr =
     tr_expr cond.L.value ~env;
     tr_expr body.L.value ~env;
 
-  and tr_for var lo hi body ~env =
+  and tr_for var lo hi body escapes ~env =
     tr_expr lo.L.value ~env:env;
     tr_expr hi.L.value ~env:env;
     (* Add iterator var to the  env *)
-    let data = { depth = env.depth; escapes = ref false } in
+    let data = { depth = env.depth; escapes } in
     let table' = Table.set env.table ~key:var.L.value ~data in
     let env' = { env with table = table' } in
     tr_expr body.L.value ~env:env'
@@ -100,8 +100,8 @@ let traverse_prog expr =
             defined then it is considered as escaping *)
          if env.depth > v.depth
          then begin
-           Trace.Escaping.escapes sym env.depth;
-           v.escapes := true
+           v.escapes := true;
+           Trace.Escaping.escapes sym env.depth
          end
        | None -> ())
     | FieldVar (var, _) ->
@@ -132,7 +132,7 @@ let traverse_prog expr =
     | FunDec fun_decs -> tr_fun_decs fun_decs ~env
 
   and tr_var_dec var ~env =
-    let data = { depth = env.depth; escapes = ref false } in
+    let data = { depth = env.depth; escapes = var.L.value.escapes } in
     let key = L.(var.value.var_name.value) in
     let table' = Table.set env.table ~key ~data in
     { env with table = table' }
@@ -143,23 +143,20 @@ let traverse_prog expr =
       ~init:env
 
   and tr_fun_dec dec ~env =
-    let add_arg table arg =
-      let data = {
-        depth = env.depth + 1;
-        escapes = ref false
-      } in
+    let depth = env.depth + 1 in
+    let add_arg table (arg : field) =
+      let data = { depth; escapes = arg.escapes } in
       Table.set table ~key:arg.name.L.value ~data
     in
     let table' = List.fold_left
         dec.params ~f:add_arg ~init:env.table in
-    let env' = { env with table = table' } in
+    let env' = { table = table'; depth } in
     tr_expr dec.body.L.value ~env:env';
     env
 
   in
   let env = { table = Table.empty; depth = 0 } in
   tr_expr expr ~env
-
 
 (* This phase must occur before semantic analysis begins,
    since [Semant] module needs to know whether a variable

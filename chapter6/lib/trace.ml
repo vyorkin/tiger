@@ -156,7 +156,7 @@ module Escaping = struct
   let trace f = Logs.debug ~src (fun m -> f (m ~header:"escape"))
 
   let escapes sym depth =
-    trace @@ fun m -> m " %s escapes at %d"
+    trace @@ fun m -> m " %s escapes at depth %d"
       (print_symbol sym) depth
 end
 

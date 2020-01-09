@@ -29,7 +29,7 @@ let rec print_expr = function
   | While (cond, body) ->
     print_while cond body
   | For (var, lo, hi, body, escapes) ->
-    print_for var lo hi body !escapes
+    print_for var lo hi body escapes
   | Break br ->
     print_break br
   | Let (decs, body) ->
@@ -219,4 +219,4 @@ and print_symbol sym =
   sprintf "%s <#%d>" s.name s.id
 
 and print_esc esc =
-  if esc then " (+)" else " (-)"
+  if !esc then " (+)" else " (-)"

@@ -23,8 +23,10 @@ let run_file fn () =
   Fmt_tty.setup_std_outputs ();
   Logs.set_level @@ Some Logs.Debug;
   let trace_sources = Trace_source.[
-    Symbol [Stdout];
-    Semant [Stdout]
+    SymbolTable [Stdout];
+    SemanticAnalysis [Stdout];
+    StackFrame [Stdout];
+    Escaping [Stdout]
   ] in
   let cfg = Config.make ~trace_sources () in
   Logs.set_reporter @@ Trace.mk_reporter cfg;

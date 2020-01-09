@@ -69,7 +69,7 @@ and trans_expr expr ~env =
     | Assign (var, expr) -> tr_assign var expr ~env
     | If (cond, t, f) -> tr_cond cond t f ~env
     | While (cond, body) -> tr_while cond body ~env
-    | For (var, lo, hi, body, escapes) -> tr_for var lo hi body !escapes ~env
+    | For (var, lo, hi, body, escapes) -> tr_for var lo hi body escapes ~env
     | Break br -> tr_break br ~env
     | Let (decs, body) -> tr_let decs body ~env
     | Array (ty, size, init) -> tr_array ty size init ~env
@@ -168,7 +168,7 @@ and trans_expr expr ~env =
     assert_int hi ~env;
     (* Create a new location (in memory/frame or in a register) for
        the iterator variable at the current nesting level *)
-    let access = Translate.alloc_local ~level:env.level ~escapes in
+    let access = Translate.alloc_local ~level:env.level ~escapes:!escapes in
     Trace.Translation.alloc_local access;
     let entry = Env.VarEntry { access; ty = T.Int } in
     let venv' = ST.bind_var env.venv var entry in
@@ -338,7 +338,7 @@ and trans_fun_decs fs ~env =
     let result = match result_typ with
       | None -> T.Unit
       | Some t -> ST.look_typ env.tenv t in
-    let esc_formals = List.map params ~f:(fun f -> f.escapes) in
+    let esc_formals = List.map params ~f:(fun f -> !(f.escapes)) in
     (* Generate a new label *)
     let label = Temp.mk_label None in
     (* Create a new "nesting level". *)
@@ -357,7 +357,7 @@ and trans_fun_decs fs ~env =
     (* Here, we build another [venv''] to be used for body processing
        it should have all the arguments in it *)
     let add_param e ({ name; escapes; _ }, ty) =
-      let access = Translate.alloc_local ~level:env.level ~escapes in
+      let access = Translate.alloc_local ~level:env.level ~escapes:!escapes in
       Trace.Translation.alloc_local access;
       let entry = VarEntry { ty; access } in
       ST.bind_var e name entry
@@ -393,13 +393,11 @@ and assert_init var init_ty ~env =
 and trans_var_dec var ~env =
   let open Syntax in
   Trace.SemanticAnalysis.trans_var_dec var;
-  let { var_name; init; _ } = var.L.value in
+  let { var_name; init; escapes; _ } = var.L.value in
   let { ty = init_ty; _ } = trans_expr init ~env in
   assert_init var init_ty ~env;
-  (* Add a new var to the term-level env.
-     Assume it escapes for now. *)
-  let escapes = true in
-  let access = Translate.alloc_local ~level:env.level ~escapes in
+  (* Add a new var to the term-level env *)
+  let access = Translate.alloc_local ~level:env.level ~escapes:!escapes in
   Trace.Translation.alloc_local access;
   let entry = Env.VarEntry { ty = init_ty; access } in
   let venv' = ST.bind_var env.venv var_name entry in

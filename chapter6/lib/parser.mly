@@ -200,14 +200,14 @@ let ty_fields :=
 
 let ty_field :=
   name = symbol; ":"; typ = symbol;
-  { { name; typ; escapes = false } }
+  { { name; typ; escapes = ref false } }
 
 (* Variables *)
 let var_dec ==
   | "var"; var_name = symbol; ":="; init = loc(expr);
-    { { var_name; var_typ = None; init; escapes = false } }
+    { { var_name; var_typ = None; init; escapes = ref false } }
   | "var"; var_name = symbol; ":"; vt = symbol; ":="; init = loc(expr);
-    { { var_name; var_typ = Some vt; init; escapes = false } }
+    { { var_name; var_typ = Some vt; init; escapes = ref false } }
 
 (* Record and array creation *)
 let create_rec :=
