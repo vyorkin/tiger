@@ -1,4 +1,7 @@
-type expr = unit [@@deriving show]
+open Core_kernel
+
+type expr = unit
+[@@deriving show { with_path = false }]
 
 (* We separate [Semant] from [Translate] module to
    avoid a huge, unweildy module that does both:
@@ -7,20 +10,27 @@ type expr = unit [@@deriving show]
 type level = {
   parent: level option;
   frame: Frame.t
-} [@@deriving show]
+} [@@deriving show { with_path = false }]
 
 (* the [level] part will be necessary later for calculating static links,
    when the variable is accessed from a (possibly) different level *)
-type access = level * Frame.access
+type access = level * Frame.access [@@deriving show]
 
 (* static link -- pointer to / address of the frame of
    the function statically enclosing current function *)
 
 let outermost =
   let label = Temp.mk_label None in
-  { parent = None;
-    frame = Frame.mk label [];
-  }
+  let frame = Frame.mk ~label ~formals:[] in
+  { parent = None; frame }
+
+let rec stack_frames level =
+  match level.parent with
+  | None -> [level.frame]
+  | Some parent -> level.frame :: stack_frames parent
+
+let stack_frames_path level =
+  level |> stack_frames |> List.map ~f:Frame.id
 
 (* in the semantic analysis phase [trans_dec] creates a
    new "nesting level" for each function by calling the [new_level],
@@ -30,17 +40,17 @@ let outermost =
    label of the functions' machine-code entry point) in
    its [FunEntry] data structure *)
 
-let mk parent label formals =
-  (* Stdio.print_endline ("Frame " ^ Temp.show_label label ^ " <" ^ string_of_int (List.length formals) ^ ">"); *)
+let new_level ~parent ~label ~formals =
   let formals = true :: formals in
-  let frame = Frame.mk label formals in
+  let frame = Frame.mk ~label ~formals in
   { parent; frame }
 
 (* Returns formals (excluding the static link) *)
-let formals lev =
+let formals level =
   (* exclude the SL *)
-  let args = List.tl (Frame.formals lev.frame) in
-  List.map (fun access -> lev, access) args
+  Frame.formals level.frame
+  |> List.tl_exn
+  |> List.map ~f:(fun access -> level, access)
 
 (* When [Semant] proceses a local variable declaration at
    some level, it calls [alloc_local] to create the
@@ -50,7 +60,6 @@ let formals lev =
    [Semant] hands this [access] back to the [Translate] module in
    order to generate the machine code to access the variable *)
 
-let alloc_local lev esc =
-  (* Stdio.print_endline ("loc"); *)
-  let access = Frame.alloc_local lev.frame esc in
-  lev, access
+let alloc_local ~level ~escapes =
+  let access = Frame.alloc_local level.frame ~escapes in
+  level, access

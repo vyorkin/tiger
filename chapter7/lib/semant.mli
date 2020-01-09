@@ -1,11 +1,7 @@
-(** Type-level environment *)
-type tenv = Type.t Symbol.Table.t
-
-(** Term-level environment *)
-type venv = Env.entry Symbol.Table.t
+module ST = Symbol_table
 
 (** Translated expression and its type *)
-type expr = {
+type expr_ty = {
   expr : Translate.expr;
   ty : Type.t;
 }
@@ -15,8 +11,9 @@ type expr = {
 val trans_prog : Syntax.expr -> unit
 
 (** Type-checks and translates the expression into intermediate code. *)
-val trans_expr : venv -> tenv -> Translate.level -> Syntax.expr Location.t -> expr
+val trans_expr : Syntax.expr Location.t -> env:Env.t -> expr_ty
 
 (** Translates a AST type expression into
-    a digested type description that we keed in the type-level environment. *)
-val trans_ty : tenv -> Syntax.ty -> Type.t
+    a digested type description that we keed in
+    the type-level environment *)
+val trans_ty : Env.tenv -> Syntax.ty -> Type.t

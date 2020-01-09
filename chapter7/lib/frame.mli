@@ -8,7 +8,10 @@ type access [@@deriving show]
 
 (** Makes a new frame for a function with the
     given label and formal parameters *)
-val mk : Temp.label -> bool list -> t
+val mk : label:Temp.label -> formals:bool list -> t
+
+(** Get a unique identifier of the given stack frame *)
+val id : t -> int
 
 (** Extracts a list of accesses denoting
     the locations where the formal parameters will be
@@ -20,4 +23,9 @@ val formals : t -> access list
     escapes and needs to go in the frame.
     Returns "in-memory" access with an offset from the frame pointer or
     "in-register" access in case if it can be allocated in a register *)
-val alloc_local : t -> bool -> access
+val alloc_local : t -> escapes:bool -> access
+
+module Printer : sig
+  val print_frame : t -> string
+  val print_access : access -> string
+end

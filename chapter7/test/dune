@@ -1,7 +1,6 @@
 (executable
  (name testsuite)
- (libraries base core ch6 oUnit))
+ (libraries core ch7 alcotest)
+ (preprocess (pps ppx_deriving.make)))
 
-(alias
- (name runtest)
- (action (run ./testsuite.exe)))
+(env (dev (flags (:standard -warn-error -A))))

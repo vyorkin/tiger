@@ -1,13 +1,15 @@
-open Symbol
-
 module T = Type
-
-type access
+module L = Location
+module S = Symbol
+module ST = Symbol_table
 
 (** Variable entry *)
 type var_entry = {
-  access: Translate.access; (** Describes how to access the variable **)
-  ty: T.t (** Type of the variable *)
+  (** Describes how to access the variable.Basically it is
+      location (in memory/frame or in a register) and [Translate.level] *)
+  access: Translate.access;
+  (** Type of the variable *)
+  ty: T.t
 }
 
 (** Function entry *)
@@ -19,12 +21,38 @@ type fun_entry = {
 }
 
 (** Term-level entry *)
-type entry =
+type ventry =
   | VarEntry of var_entry
   | FunEntry of fun_entry
+[@@deriving show]
+
+type venv = ventry ST.t
+type tenv = T.t ST.t
+
+type t = {
+  (** Type-level environemnt *)
+  tenv : tenv;
+  (** Term-level (value-level) environment *)
+  venv : venv;
+  (** Nesting level *)
+  level : Translate.level;
+  (** AST traversal path *)
+  path : (Syntax.expr L.t) list;
+  (** "Inside a loop" marker **)
+  loop : S.t option;
+}
+
+(** Create a new environment *)
+val mk : unit -> t
+
+(** Push the given expression to the [t.path] stack *)
+val enter_expr : t -> Syntax.expr L.t -> t
+
+(** Set the "inside a loop" marker *)
+val enter_loop : t -> string -> t
 
 (** Contains bindings for predefined functions *)
-val base_venv : entry Table.t
+val base_venv : venv
 
 (** Predefined types *)
-val base_tenv : T.t Table.t
+val base_tenv : tenv

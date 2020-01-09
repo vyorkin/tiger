@@ -1,5 +1,3 @@
-open Printf
-
 type t = int [@@deriving eq, show]
 
 let mk =
@@ -7,4 +5,4 @@ let mk =
   fun () -> incr n; !n
 
 let to_string =
-  sprintf "#%d"
+  Printf.sprintf "#%d"

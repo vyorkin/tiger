@@ -1,41 +1,40 @@
 open Core
-open Lexing
+
 open Ch7
-open Ch7.Lexer
-open Ch7.Syntax
-open Ch7.Semant
 
-let print_position outx lexbuf =
-  let pos = lexbuf.lex_curr_p in
-  let col = pos.pos_cnum - pos.pos_bol + 1 in
-  fprintf outx "%s:%d:%d" pos.pos_fname pos.pos_lnum col
-
-let parse_with_error lexbuf =
+let run_tiger fn ch =
+  let open Printf in
+  let lexbuf = Lexbuf.mk fn ch in
   try
     let expr = Parser.main Lexer.read lexbuf in
-    Printf.printf "%s\n" (show_expr expr);
-    trans_prog expr;
+    Escape.traverse_prog expr;
+    Semant.trans_prog expr;
+    (* printf "%s\n" (Syntax.show_expr expr) *)
   with
-  | LexingError msg ->
-    fprintf stderr "%a: lexing error%s\n" print_position lexbuf msg |> ignore
+  | Lexer.LexingError msg ->
+    eprintf "%s: lexing error%s\n" (Lexbuf.pos lexbuf) msg
   | Parser.Error ->
-    fprintf stderr "%a: syntax error\n" print_position lexbuf
+    eprintf "%s: syntax error\n" (Lexbuf.pos lexbuf)
   | Err.Error (err, loc, msg) ->
-    fprintf stderr "%s\n" (Err.to_string err loc msg);
-    exit (-1)
+    eprintf "%s\n" (Err.to_string err loc msg)
 
-let parse filename ch =
-  let lexbuf = Lexing.from_channel ch in
-  lexbuf.lex_curr_p <- {
-    lexbuf.lex_curr_p with pos_fname = filename
-  };
-  parse_with_error lexbuf
-
-let run_parser filename () =
-  In_channel.with_file filename ~f:(parse filename)
+let run_file fn () =
+  (* Fmt.set_style_renderer Format.std_formatter `Ansi_tty; *)
+  Fmt_tty.setup_std_outputs ();
+  Logs.set_level @@ Some Logs.Debug;
+  let trace_sources = Trace_source.[
+    SymbolTable [Stdout];
+    SemanticAnalysis [Stdout];
+    StackFrame [Stdout];
+    Escaping [Stdout]
+  ] in
+  let cfg = Config.make ~trace_sources () in
+  Logs.set_reporter @@ Trace.mk_reporter cfg;
+  (* Logs.set_reporter @@ Logs_fmt.reporter (); *)
+  In_channel.with_file fn ~f:(run_tiger fn)
 
 let () =
   let spec = Command.Spec.(empty +> anon ("filename" %: string)) in
-  run_parser
-  |> Command.basic_spec ~summary:"Run the parser" spec
+  run_file
+  |> Command.basic_spec ~summary:"Run the tiger" spec
   |> Command.run

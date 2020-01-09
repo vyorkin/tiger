@@ -1,5 +1,8 @@
+open Core_kernel
+
 module L = Location
 module S = Symbol
+module T = Type
 
 type op =
   (* arithmetics *)
@@ -14,20 +17,20 @@ type op =
   | Lt
   | Eq
   | Neq
-  [@@deriving show]
+[@@deriving show { with_path = false }]
 
 type field = {
   name : S.t L.t;
   typ : S.t L.t;
-  escape : bool ref;
-} [@@deriving show]
+  escapes : bool ref;
+} [@@deriving show { with_path = false }]
 
 (* Type *)
 type ty =
   | NameTy of S.t L.t
   | RecordTy of field list
   | ArrayTy of S.t L.t
-  [@@deriving show]
+[@@deriving show { with_path = false }]
 
 type expr =
   | Var of var L.t
@@ -49,18 +52,18 @@ type expr =
           expr L.t option (* else *)
   | While of expr L.t * (* condition *)
              expr L.t (* body *)
-  | For of S.t * (* iterator name *)
+  | For of S.t L.t * (* iterator name *)
            expr L.t * (* from *)
            expr L.t * (* to *)
            expr L.t * (* body *)
-           bool ref (* escape *)
+           bool ref (* escapes *)
   | Break of unit L.t
   | Let of dec list * (* declarations *)
            expr L.t (* body *)
   | Array of S.t L.t * (* type *)
              expr L.t * (* size *)
              expr L.t (* init *)
-  [@@deriving show]
+[@@deriving show { with_path = false }]
 
 (* Variable *)
 and var =
@@ -71,28 +74,28 @@ and var =
   | SubscriptVar of
       var L.t * (* var *)
       expr L.t (* subscript / index *)
-  [@@deriving show]
+[@@deriving show { with_path = false }]
 
 (* Type(s), value or function(s) declaration *)
 and dec =
   | TypeDec of type_dec L.t list
-  | FunDec of fun_dec L.t list
   | VarDec of var_dec L.t
-  [@@deriving show]
+  | FunDec of fun_dec L.t list
+[@@deriving show { with_path = false }]
 
 (* Value declaration *)
 and var_dec = {
   var_name : S.t L.t;
   var_typ : S.t L.t option;
   init : expr L.t;
-  escape : bool ref;
-} [@@deriving show]
+  escapes : bool ref;
+} [@@deriving show { with_path = false }]
 
 (* Type declaration *)
 and type_dec = {
   type_name : S.t L.t;
   typ : ty;
-} [@@deriving show]
+} [@@deriving show { with_path = false }]
 
 (* Function declaration *)
 and fun_dec = {
@@ -100,4 +103,4 @@ and fun_dec = {
   params : field list;
   body : expr L.t;
   result_typ : S.t L.t option;
-} [@@deriving show]
+} [@@deriving show { with_path = false }]

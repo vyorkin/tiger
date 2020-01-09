@@ -1,3 +1,5 @@
+open Core_kernel
+
 module S = Symbol
 
 (* We use the word "temporary" to mean a value that
@@ -8,15 +10,15 @@ module S = Symbol
 
    This module manages these two distinct sets of names *)
 
-type t = int [@@deriving show]
+type t = int
+[@@deriving show { with_path = false }]
 
-type label = Symbol.t [@@deriving show]
+type label = Symbol.t
+[@@deriving show { with_path = false }]
 
 let mk =
   let idx = ref (-1) in
-  fun () ->
-    incr idx;
-    !idx
+  fun () -> incr idx; !idx
 
 let mk_label name =
   let idx = ref (-1) in
@@ -25,5 +27,7 @@ let mk_label name =
     S.mk s
   | None ->
     incr idx;
-    let name = string_of_int !idx in
-    S.mk name
+    !idx |> Int.to_string |> S.mk
+
+let print_label s =
+  Symbol.(sprintf "%s <#%d>" s.name s.id)
