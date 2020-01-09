@@ -1,4 +1,13 @@
-type expr = unit [@@deriving show]
+type expr =
+  (** "Expression" represented as [Ir.expr] *)
+  | Ex of Ir.expr
+  (** "No result" represented as [Ir.stm] *)
+  | Nx of Ir.stm
+  (** "Conditional" represented as a function from label-pair to [Ir.stm].
+      If you pass it a true-destination and a false-destination, it will make a
+      statement that evaluates some conditionals and then jumps to
+      one of the destinations (the statement will never "fall through") *)
+  | Cx of (Temp.label * Temp.label -> Ir.stm)
 
 (** Represents a nesting level *)
 type level = {

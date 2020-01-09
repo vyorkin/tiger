@@ -1,7 +1,9 @@
 open Core_kernel
 
-type expr = unit
-[@@deriving show { with_path = false }]
+type expr =
+  | Ex of Ir.expr
+  | Nx of Ir.stm
+  | Cx of (Temp.label * Temp.label -> Ir.stm)
 
 (* We separate [Semant] from [Translate] module to
    avoid a huge, unweildy module that does both:

@@ -41,11 +41,20 @@ and stm =
   | Jump of expr * Temp.label list
   (** Evaluate [left], [right] in that order, yielding values [l], [r].
       Then compare [l], [r] using the relational operator [op].
-      If the result is [true], jump to [t]; otherwise jump to [f].
-       *)
+      If the result is [true], jump to [t]; otherwise jump to [f] *)
   | CJump of cjump
+  (** Two consequent statements *)
   | Seq of stm * stm
+  (** Define the constant value of name [n] to be the current machine code address.
+      This is like a label definition in assembly language. The value
+      [Name n] may be the target of jumps, calls, etc *)
   | Label of Temp.label
+
+(* a > b | c < d *)
+(* ------------------------------------------------------ *)
+(* Cx (fn (t, f) => Seq(CJump(Gt,a,b,t,z),
+ *                      Seq(Label z, CJump(Lt,c,d,t,f)))) *)
+(* ------------------------------------------------------ *)
 
 (** Conditional jump parameters *)
 and cjump = {

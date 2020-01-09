@@ -14,7 +14,7 @@ type expr_ty = {
 
 let ret ty =
   Trace.SemanticAnalysis.ret_ty ty;
-  { expr = (); ty }
+  { expr = Translate.Ex (Ir.Const 1); ty }
 
 let ret_int = ret T.Int
 let ret_string = ret T.String
