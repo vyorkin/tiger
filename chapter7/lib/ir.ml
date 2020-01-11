@@ -132,7 +132,14 @@ let (~^) t = Temp t
 let (<+>) l r = ~@ (l |+| r)
 let (<->) l r = ~@ (l |-| r)
 
-(* Helper functions to ease construction of
+(* Helper function to ease construction of
    array elements and record fields accessor IR *)
 
 let indexed e i n = ~@ (e <+> i |*| ~$ n)
+
+(* Helper function to construct a sequence of statements *)
+let rec seq = function
+  | s1 :: [] -> s1
+  | s1 :: s2 :: [] -> Seq (s1, s2)
+  | s1 :: ss -> Seq(s1, seq ss)
+  | [] -> failwith "Attempt to construct empty sequence (Ir.Seq)"
