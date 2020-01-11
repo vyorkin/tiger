@@ -8,7 +8,7 @@ open Core_kernel
 
 (* We will use the x64 Linux ABI.
 
-   According to the System V AMD64 ABI,
+   According to the System V AMD64 ABI (see Figure 3.4 "Register usage" on p.24),
    the first 6 integer arguments are passed in left-to-right order in
    RDI, RSI, RDX, RCX, R8 and R9 registers, respectively.
 
@@ -46,15 +46,19 @@ type t = {
 
 let equal x y = x.id = y.id
 
-let (=) x y = equal x y
+let (=) = equal
 let (<>) x y = not (equal x y)
 
 (* Word size in bytes *)
 let word_size = 64 / 8 (* = 8 bytes *)
 
 (* Special registers *)
-let fp = Temp.mk () (* frame pointer (RBP) *)
-let sp = Temp.mk () (* stack pointer (RSP) *)
+let fp = Temp.mk () (* Frame Pointer (RBP in x64) *)
+let sp = Temp.mk () (* Stack Pointer (RSP in x64) *)
+
+(* Return Value (RV) register (see "Returning of values"
+   on p.25 of the System-V ABI specification) *)
+let rv = Temp.mk ()
 
 (* x64 "parameter"-registers *)
 let rdi = Temp.mk ()
@@ -82,7 +86,7 @@ let callee_regs = [rbx; r12; r13; r14; r15]
 
 (* We need the [addr] here to access different frames.
    The address of the frame is the same as the
-   current frame pointer only when accession the variable
+   current frame pointer only when accessing the variable
    from its own level. When accessing the variable [access] from an
    inner-nested function, the frame address must be calculated
    using static links, and the result of this calculation will be
@@ -91,27 +95,32 @@ let callee_regs = [rbx; r12; r13; r14; r15]
 let expr access ~addr =
   let open Ir in
   match access with
-  | InFrame k ->
-    Mem(BinOp (addr, Plus, Const k))
-  | InReg t ->
-    Temp t
+  (* Memory accessor at offset [k] *)
+  | InFrame k -> addr <+> ~$ k
+  (* Temp t *)
+  | InReg t -> ~^ t
 
 let next_id =
   let n = ref (-1) in
   fun () -> incr n; !n
 
 (* Creates a new location for a formal parameter or
-   a local variable, given its index and [esc] flag *)
-let mk_access i = function
-  | true -> InFrame ((i + 1) * (-word_size)) (* escapes -- alloc in frame *)
-  | false -> InReg (Temp.mk ()) (* doesn't escape -- use temp (register) *)
+   a local variable, given its index and [escape] flag *)
+let mk_formal i = function
+  (* If it escapes then we allocate it in a frame.
+     We start with the offset [i + 1] here because the
+     first access/formal (which is 0) always should be a
+     static link (SL, pointer to the previous frame) *)
+  | true -> InFrame ((i + 1) * (-word_size))
+  (* When it doesn't escape we use [Temp.t] (register) *)
+  | false -> InReg (Temp.mk ())
 
 (* Makes a new stack frame *)
 let mk ~label ~formals =
   let id = next_id () in
-  let formals = List.mapi formals ~f:mk_access in
+  let formals = List.mapi formals ~f:mk_formal in
   let locals = 0 in
-  (* Don't know yet what instruction we need,
+  (* Don't know yet what instructions we need,
      so just leave it empty for now *)
   let instrs = [] in
   { id; label; formals; locals; instrs }

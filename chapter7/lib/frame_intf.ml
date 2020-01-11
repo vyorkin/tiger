@@ -17,6 +17,9 @@ module type S = sig
   (** Stack pointer register (SP) *)
   val sp : Temp.t
 
+  (** Return value register *)
+  val rv : Temp.t
+
   (** Turns [access] into the [Ir.expr]. The [addr] is the
       address of the stack frame that [access] lives in *)
   val expr : access -> addr:Ir.expr -> Ir.expr

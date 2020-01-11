@@ -41,6 +41,7 @@ let (<>) a b = not (a = b)
 let (~!) x = actual x
 
 let assignable x y =
+  (* We consider the "actual" types *)
   match ~!x, ~!y with
   (* "nil" is legal value for records *)
   | Record _, Nil -> true

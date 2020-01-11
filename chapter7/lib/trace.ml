@@ -141,7 +141,7 @@ module Translation = struct
   let new_level level =
     let path =
       level
-      |> stack_frames_path
+      |> frames_path
       |> List.map ~f:Int.to_string
       |> String.concat ~sep:"->"
     in

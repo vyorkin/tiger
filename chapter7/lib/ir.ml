@@ -87,3 +87,52 @@ and relop =
   | Lt | Gt | Le | Ge
   | Ult | Ule | Ugt | Uge
   [@@deriving show { with_path = false }]
+
+(** Make a [binop] out of a [Syntax.op] *)
+let binop_of_op = function
+  | Syntax.Plus -> Plus
+  | Syntax.Minus -> Minus
+  | Syntax.Times -> Mul
+  | Syntax.Divide -> Div
+  | op -> failwith @@
+    "Invalid integer arithmetic operator: " ^
+    (Syntax_printer.print_op_sym op)
+
+(** Make a [relop] out of a [Syntax.op] *)
+let relop_of_op = function
+  | Syntax.Ge -> Ge
+  | Syntax.Gt -> Gt
+  | Syntax.Le -> Le
+  | Syntax.Lt -> Lt
+  | Syntax.Eq -> Eq
+  | Syntax.Neq -> Ne
+  | op -> failwith @@
+    "Invalid relational operator: " ^
+    (Syntax_printer.print_op_sym op)
+
+(* Helper operators to simplify
+   construction of complex IR expressions *)
+
+let (|+|) l r = BinOp(l, Plus, r)
+let (|-|) l r = BinOp(l, Minus, r)
+let (|*|) l r = BinOp(l, Mul, r)
+
+(** Constant operator *)
+let (~$) k = Const k
+(** Label operator **)
+let (~:) l = Name l
+(** Memory access operator **)
+let (~@) e = Mem e
+(** Temp opeartor *)
+let (~^) t = Temp t
+
+(* Other helper operators for convenience
+   (see the Page 155 of the Tiger book for the equivalent definition) *)
+
+let (<+>) l r = ~@ (l |+| r)
+let (<->) l r = ~@ (l |-| r)
+
+(* Helper functions to ease construction of
+   array elements and record fields accessor IR *)
+
+let indexed e i n = ~@ (e <+> i |*| ~$ n)
