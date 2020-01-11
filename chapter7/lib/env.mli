@@ -1,4 +1,5 @@
 module T = Type
+module Tr = Translate
 module L = Location
 module S = Symbol
 module ST = Symbol_table
@@ -7,14 +8,14 @@ module ST = Symbol_table
 type var_entry = {
   (** Describes how to access the variable.Basically it is
       location (in memory/frame or in a register) and [Translate.level] *)
-  access: Translate.access;
+  access: Tr.access;
   (** Type of the variable *)
   ty: T.t
 }
 
 (** Function entry *)
 type fun_entry = {
-  level: Translate.level; (** Nesting level *)
+  level: Tr.level; (** Nesting level *)
   label: Temp.label; (** Label of the machine-code entry point *)
   formals: T.t list; (** Types of the formal parameters *)
   result: T.t (** Type of the result returned by the function **)
@@ -35,7 +36,7 @@ type t = {
   (** Term-level (value-level) environment *)
   venv : venv;
   (** Nesting level *)
-  level : Translate.level;
+  level : Tr.level;
   (** AST traversal path *)
   path : (Syntax.expr L.t) list;
   (** "Inside a loop" marker **)

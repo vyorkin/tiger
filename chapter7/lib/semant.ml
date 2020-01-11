@@ -2,24 +2,32 @@ open Core_kernel
 open Err
 
 module T = Type
+module Tr = Translate
 module L = Location
 module U = Unique
 module S = Symbol
 module ST = Symbol_table
 
+(* This module shouldn't contain any direct
+   reference to the [Ir] or [Frame] modules.
+   Any manipulation of [Ir] trees should be
+   done by [Translate] module *)
+
 type expr_ty = {
-  expr : Translate.expr;
+  expr : Tr.expr;
   ty : Type.t;
 }
 
-let ret ty =
-  Trace.SemanticAnalysis.ret_ty ty;
-  { expr = Translate.Ex (Ir.Const 1); ty }
+let ret expr ty =
+  Trace.SemanticAnalysis.ret expr ty;
+  { expr; ty }
 
-let ret_int = ret T.Int
-let ret_string = ret T.String
-let ret_nil = ret T.Nil
-let ret_unit = ret T.Unit
+let dummy_expr = Tr.dummy_expr ()
+
+let ret_int = ret dummy_expr T.Int
+let ret_string = ret dummy_expr T.String
+let ret_nil = ret dummy_expr T.Nil
+let ret_unit = ret dummy_expr T.Unit
 
 let type_mismatch_error4 msg l t1 t2 =
   let msg' = sprintf
@@ -96,7 +104,7 @@ and trans_expr expr ~env =
           "function \"%s\" expects %d formal arguments, but %d was given"
           (f.L.value.S.name) (List.length formals) (List.length args) ;
       List.iter2_exn formals args ~f:(assert_ty ~env);
-      T.(ret ~!result)
+      T.(ret dummy_expr ~!result)
 
   (* In our language binary operators work only with
      integer operands, except for (=) and (<>) *)
@@ -113,7 +121,7 @@ and trans_expr expr ~env =
     let { ty = ty_r; _ } = tr_expr r ~env in
     if T.(~!ty_l <> ~!ty_r)
     then type_mismatch_error3 expr ty_l ty_r;
-    ret ty_l
+    ret dummy_expr ty_l
 
   and assert_op l r ~env =
     assert_int l ~env;
@@ -125,7 +133,7 @@ and trans_expr expr ~env =
     let { ty = var_ty; _ } = tr_var var ~env in
     let { ty = expr_ty; _ } = tr_expr expr ~env in
     if T.(var_ty = expr_ty)
-    then ret var_ty
+    then ret dummy_expr var_ty
     else type_error expr @@ sprintf
         "invalid assigment of type \"%s\" to a variable of type \"%s\""
         (T.to_string expr_ty) (T.to_string var_ty)
@@ -145,13 +153,13 @@ and trans_expr expr ~env =
     let { ty = t_ty; _ } = tr_expr t ~env in
     match f with
     | None ->
-      ret t_ty
+      ret dummy_expr t_ty
     | Some f ->
       (* If there is a false-branch then we should
          check if types of both branches match *)
       let { ty = f_ty; _ } = tr_expr f ~env in
       if T.(t_ty = f_ty)
-      then ret t_ty
+      then ret dummy_expr t_ty
       else type_error expr @@ sprintf
           "different types of branch expressions: \"%s\" and \"%s\""
           (T.to_string t_ty) (T.to_string f_ty)
@@ -168,7 +176,7 @@ and trans_expr expr ~env =
     assert_int hi ~env;
     (* Create a new location (in memory/frame or in a register) for
        the iterator variable at the current nesting level *)
-    let access = Translate.alloc_local ~level:env.level ~escapes:!escapes in
+    let access = Tr.alloc_local ~level:env.level ~escapes:!escapes in
     Trace.Translation.alloc_local access;
     let entry = Env.VarEntry { access; ty = T.Int } in
     let venv' = ST.bind_var env.venv var entry in
@@ -209,7 +217,7 @@ and trans_expr expr ~env =
       (* We want to check each field of the variable
          against the corresponding record type definition *)
       List.iter ~f:(tr_record_field rec_typ tfields ~env) vfields;
-      ret rec_typ
+      ret dummy_expr rec_typ
     | _ ->
       type_error ty_name @@ sprintf
         "\"%s\" is not a record" (T.to_string rec_typ)
@@ -226,7 +234,7 @@ and trans_expr expr ~env =
       let t = ~!tn in
       let init_t = ~!init_tn in
       if t = init_t
-      then ret arr_ty
+      then ret dummy_expr arr_ty
       else type_mismatch_error4
           "invalid type of array initial value, " init t init_t
     | _ ->
@@ -247,7 +255,7 @@ and trans_expr expr ~env =
     Trace.SemanticAnalysis.tr_simple_var var;
     match ST.look_var env.venv var with
     | VarEntry { ty; _ }  ->
-      T.(ret ~!ty)
+      T.(ret dummy_expr ~!ty)
     | FunEntry { formals; result; _ } ->
       let signature =
         formals
@@ -268,7 +276,7 @@ and trans_expr expr ~env =
          lets try to find a type for the given [field],
          it is the type of the [FieldVar] expression  *)
       (match List.Assoc.find fields ~equal:S.equal field.L.value with
-       | Some tt -> T.(ret ~!tt)
+       | Some tt -> T.(ret dummy_expr ~!tt)
        | None -> missing_field_error rec_ty.ty field)
     | _ ->
       type_error var @@ sprintf
@@ -281,7 +289,7 @@ and trans_expr expr ~env =
     match arr_ty.ty with
     | Array (tn, _) ->
       assert_int sub ~env;
-      T.(ret ~!tn)
+      T.(ret dummy_expr ~!tn)
     | _ ->
       type_error var @@ sprintf
         "\"%s\" is not an array" (T.to_string arr_ty.ty)
@@ -343,7 +351,7 @@ and trans_fun_decs fs ~env =
     let label = Temp.mk_label None in
     (* Create a new "nesting level". *)
     let parent = Some env.level in
-    let level = Translate.new_level ~parent ~label ~formals:esc_formals in
+    let level = Tr.new_level ~parent ~label ~formals:esc_formals in
     Trace.Translation.new_level level;
     (* Get types of the formal parameters *)
     let formals = List.map args ~f:snd in
@@ -357,7 +365,7 @@ and trans_fun_decs fs ~env =
     (* Here, we build another [venv''] to be used for body processing
        it should have all the arguments in it *)
     let add_param e ({ name; escapes; _ }, ty) =
-      let access = Translate.alloc_local ~level:env.level ~escapes:!escapes in
+      let access = Tr.alloc_local ~level:env.level ~escapes:!escapes in
       Trace.Translation.alloc_local access;
       let entry = VarEntry { ty; access } in
       ST.bind_var e name entry
@@ -397,7 +405,7 @@ and trans_var_dec var ~env =
   let { ty = init_ty; _ } = trans_expr init ~env in
   assert_init var init_ty ~env;
   (* Add a new var to the term-level env *)
-  let access = Translate.alloc_local ~level:env.level ~escapes:!escapes in
+  let access = Tr.alloc_local ~level:env.level ~escapes:!escapes in
   Trace.Translation.alloc_local access;
   let entry = Env.VarEntry { ty = init_ty; access } in
   let venv' = ST.bind_var env.venv var_name entry in

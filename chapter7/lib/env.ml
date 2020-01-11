@@ -1,15 +1,16 @@
 module T = Type
+module Tr = Translate
 module L = Location
 module S = Symbol
 module ST = Symbol_table
 
 type var_entry = {
-  access: Translate.access;
+  access: Tr.access;
   ty: T.t
 } [@@deriving show { with_path = false }]
 
 type fun_entry = {
-  level: Translate.level;
+  level: Tr.level;
   label: Temp.label;
   formals: T.t list;
   result: T.t
@@ -26,7 +27,7 @@ type tenv = T.t ST.t
 type t = {
   tenv : tenv;
   venv : venv;
-  level : Translate.level;
+  level : Tr.level;
   path : (Syntax.expr L.t) list;
   loop : S.t option;
 }
@@ -44,7 +45,7 @@ let base_tenv =
 let mk () = {
   tenv = base_tenv;
   venv = base_venv;
-  level = Translate.outermost;
+  level = Tr.outermost;
   path = [];
   loop = None;
 }

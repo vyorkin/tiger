@@ -39,7 +39,7 @@ module SemanticAnalysis : sig
   val trans_fun_head : fun_dec L.t -> unit
   val trans_var_dec : var_dec L.t -> unit
 
-  val ret_ty : T.t -> unit
+  val ret : Translate.expr -> T.t -> unit
 
   val assert_ty : T.t -> expr L.t -> unit
   val assert_comparison : expr L.t -> expr L.t -> expr L.t -> unit

@@ -3,6 +3,7 @@ open Core_kernel
 module S = Symbol
 module L = Location
 module T = Type
+module Tr = Translate
 
 type target =
   | Stdout
@@ -91,8 +92,12 @@ module SemanticAnalysis = struct
   let trans_var_dec var =
     trace_tr "trans_var_dec" (print_var_dec var)
 
-  let ret_ty ty =
-    trace @@ T.(fun m -> m "<-- %s (%s)" (to_string ty) (to_string (~! ty)))
+  let ret expr ty =
+    let open T in
+    trace @@ fun m -> m "<-- %s (%s):\n%s"
+      (to_string ty)
+      (to_string (~! ty))
+      (Tr.Printer.print_expr expr)
 
   let assert_ty ty expr =
     trace @@ fun m -> m "!!! (ty) %s : %s" (print_expr expr.L.value) (T.to_string ty)
@@ -127,7 +132,7 @@ module StackFrame = struct
 end
 
 module Translation = struct
-  open Translate
+  open Tr
   open Frame.Printer
 
   let src = Logs.Src.create "tig.translation" ~doc:"Translation"

@@ -11,19 +11,21 @@ type expr =
   (** Application of binary operator [op] to operands of type [expr].
       The left subexpression is evaluated before the right subexpression *)
   | BinOp of expr * binop * expr
-  (** Represents contents of [Frame.word_size] bytes of
-      memory starting at address [expr].If [Mem] is used as
-      the left child of a [Move] it means "store", but anywhere else it means "fetch" *)
+  (** Represents contents of [Frame.word_size] bytes of memory starting at
+      address [expr]. If [Mem] is used as the left child of
+      a [Move] it means "store", but anywhere else it means "fetch" *)
   | Mem of expr
   (** Procedure call: the application of a function [f] to argument list [l].
-      The subexpression [f] is evaluated before the arguments which are evaluated from left to right *)
+      The subexpression [f] is evaluated before the
+      arguments which are evaluated from left to right *)
   | Call of expr * expr list
-  (** The statement [stm] is evaluated for side effects,
+  (** The statement [stmt] is evaluated for side effects,
       then [expr] is evaluated for a result *)
-  | ESeq of stm * expr
+  | ESeq of stmt * expr
+  [@@deriving show { with_path = false }]
 
 (** Statements of the IR language perform side effects and control flow *)
-and stm =
+and stmt =
   (** There are 2 options:
       - Move (Temp.t, e) - Evaluate [e] and move it into temporary
       - Move (Mem(e1), e2) - Evaluate e1, yielding address [a].
@@ -44,26 +46,27 @@ and stm =
       If the result is [true], jump to [t]; otherwise jump to [f] *)
   | CJump of cjump
   (** Two consequent statements *)
-  | Seq of stm * stm
+  | Seq of stmt * stmt
   (** Define the constant value of name [n] to be the current machine code address.
       This is like a label definition in assembly language. The value
       [Name n] may be the target of jumps, calls, etc *)
   | Label of Temp.label
+  [@@deriving show { with_path = false }]
 
 (* a > b | c < d *)
-(* ------------------------------------------------------ *)
-(* Cx (fn (t, f) => Seq(CJump(Gt,a,b,t,z),
- *                      Seq(Label z, CJump(Lt,c,d,t,f)))) *)
-(* ------------------------------------------------------ *)
+(* ---------------------------------------------------------- *)
+(* Cx (fn (t, f) => Seq(CJump(Gt, a, b, t, z),                *)
+(*                      Seq(Label z, CJump(Lt, c, d, t, f)))) *)
+(* ---------------------------------------------------------- *)
 
-(** Conditional jump parameters *)
+(** Conditional jump params *)
 and cjump = {
   op : relop;
   left : expr;
   right : expr;
   t : Temp.label;
   f : Temp.label;
-}
+} [@@deriving show { with_path = false }]
 
 (** The integer arithmetic operators are [Plus], [Minus], [Mul] and [Div].
     Integer bitwise logical operators are [And], [Or] and [Xor].
@@ -73,6 +76,7 @@ and binop =
   | Plus | Minus | Mul | Div
   | And | Or | Xor
   | LShift | RShift | ARShift
+  [@@deriving show { with_path = false }]
 
 (** The relational operators are [Eq] and [Ne] for
     integer equality and nonequality (signed or unsigned).
@@ -82,3 +86,4 @@ and relop =
   | Eq | Ne
   | Lt | Gt | Le | Ge
   | Ult | Ule | Ugt | Uge
+  [@@deriving show { with_path = false }]

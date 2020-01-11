@@ -1,19 +1,17 @@
-type expr =
-  (** "Expression" represented as [Ir.expr] *)
-  | Ex of Ir.expr
-  (** "No result" represented as [Ir.stm] *)
-  | Nx of Ir.stm
-  (** "Conditional" represented as a function from label-pair to [Ir.stm].
-      If you pass it a true-destination and a false-destination, it will make a
-      statement that evaluates some conditionals and then jumps to
-      one of the destinations (the statement will never "fall through") *)
-  | Cx of (Temp.label * Temp.label -> Ir.stm)
+type expr [@@deriving show]
+
+val unEx : expr -> expr
+val unNx : expr -> expr
+val unCx : expr -> expr
 
 (** Represents a nesting level *)
 type level = {
   parent: level option;
   frame: Frame.t
 } [@@deriving show]
+
+(** Distance (number of frames) between the given two levels *)
+val dist : inner:level -> outer:level -> int
 
 (** Returns a stack of all frames, including the current/given frame *)
 val stack_frames : level -> Frame.t list
@@ -43,3 +41,20 @@ val formals : level -> access list
 (** Creates an [access] at the given [level].
     The argument [bool] specifies whether the variable escapes *)
 val alloc_local : level:level -> escapes:bool -> access
+
+(* The manipulation of [Ir.t] nodes should all be in
+   this module, not it [Semant]. Doing it in [Semant] would
+   clutter up the readability of that moudle and would make
+   [Semant] dependent on the [Ir] representation.
+
+   Instead, we introduce the following interface: *)
+
+val simple_var : access * level -> expr
+val field_var : expr * Symbol.t * Symbol.t list -> expr
+val subscript_var : expr * expr -> expr
+
+val dummy_expr : unit -> expr
+
+module Printer : sig
+  val print_expr : expr -> string
+end
