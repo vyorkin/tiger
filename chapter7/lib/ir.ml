@@ -130,8 +130,8 @@ let (~*) t = Temp t
 
 (* [stmt] operators *)
 
-let (<<<) e1 e2 = Move (e1, e2)
-let (<|~) e labels = Jump (e, labels)
+let (<<<) e1 e2 = Move(e1, e2)
+let (<|~) e labels = Jump(e, labels)
 
 (* Other helper operators for convenience
    (see the Page 155 of the Tiger book for the equivalent definition) *)
@@ -139,7 +139,7 @@ let (<|~) e labels = Jump (e, labels)
 let (<+>) l r = ~@(l |+| r)
 let (<->) l r = ~@(l |-| r)
 
-(* Helper function to ease construction of
+(** Helper function to ease construction of
    array elements and record fields accessor IR.
 
    If [a] is a memory-resident array variable represented as [Mem(e)],
@@ -147,12 +147,20 @@ let (<->) l r = ~@(l |-| r)
    The contents of addresses [p], [p + w], [p + 2*w], ... [p + n*w]
    (where [w] is the word size) will be elements of the array
    (all elements are one word long) *)
-
 let indexed e i w = ~@(~@e |+| (i |*| ~$w))
 
-(* Helper function to construct a sequence of statements *)
+(** Helper function to construct a sequence of statements **)
 let rec seq = function
   | s1 :: [] -> s1
   | s1 :: s2 :: [] -> Seq (s1, s2)
   | s1 :: ss -> Seq (s1, seq ss)
-  | [] -> failwith "Attempt to construct empty sequence (Ir.Seq)"
+  | [] -> Expr ~$0
+
+(** The implementation depends on the releationship between Tiger's
+    procedure-call convention and that of the external function.
+    For now, to call an external function [s] with arguments [args] we
+    simply generate a [Call] [expr], but it may have to be adjusted
+    for static links, or underscores in labels, and so on (see p.165) *)
+let external_call s args =
+  let name = Temp.mk_label (Some s) in
+  Call(~:name, args)

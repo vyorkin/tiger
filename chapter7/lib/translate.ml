@@ -248,12 +248,21 @@ let e_field_var (expr, name, fields) = Ex Ir.(~$0)
    * Ex (l <-> ~$ ) *)
 
 let e_record _ = Ex Ir.(~$0)
-let e_array _ = Ex Ir.(~$0)
+
+(* This refers to an external function [init_array] which
+   is written in a language such as C or assembly language *)
+let e_array (size, init) =
+  let args = [unEx(size); unEx(init)] in
+  Ex Ir.(external_call "init_array" args)
+
 let e_cond _ = Ex Ir.(~$0)
 let e_loop _ = Ex Ir.(~$0)
 let e_break _ = Ex Ir.(~$0)
 let e_call _ = Ex Ir.(~$0)
-let e_assign _ = Ex Ir.(~$0)
+
+let e_assign (dst, src) =
+  Nx Ir.(unEx(dst) <<< unEx(src))
+
 let e_seq _ = Ex Ir.(~$0)
 let e_let _ = Ex Ir.(~$0)
 let e_dummy () = Ex (Ir.Const 1)
