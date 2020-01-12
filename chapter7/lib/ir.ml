@@ -117,6 +117,8 @@ let (|+|) l r = BinOp(l, Plus, r)
 let (|-|) l r = BinOp(l, Minus, r)
 let (|*|) l r = BinOp(l, Mul, r)
 
+(* [expr] operators *)
+
 (** Constant operator *)
 let (~$) k = Const k
 (** Label operator **)
@@ -124,7 +126,12 @@ let (~:) l = Name l
 (** Memory access operator **)
 let (~@) e = Mem e
 (** Temp opeartor *)
-let (~^) t = Temp t
+let (~*) t = Temp t
+
+(* [stmt] operators *)
+
+let (<<<) e1 e2 = Move (e1, e2)
+let (<|~) e labels = Jump (e, labels)
 
 (* Other helper operators for convenience
    (see the Page 155 of the Tiger book for the equivalent definition) *)
@@ -141,5 +148,5 @@ let indexed e i n = ~@ (e <+> i |*| ~$ n)
 let rec seq = function
   | s1 :: [] -> s1
   | s1 :: s2 :: [] -> Seq (s1, s2)
-  | s1 :: ss -> Seq(s1, seq ss)
+  | s1 :: ss -> Seq (s1, seq ss)
   | [] -> failwith "Attempt to construct empty sequence (Ir.Seq)"

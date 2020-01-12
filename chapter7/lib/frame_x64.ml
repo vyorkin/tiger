@@ -96,9 +96,9 @@ let expr access ~addr =
   let open Ir in
   match access with
   (* Memory accessor at offset [k] *)
-  | InFrame k -> addr <+> ~$ k
+  | InFrame k -> addr <+> ~$k
   (* Temp t *)
-  | InReg t -> ~^ t
+  | InReg t -> ~*t
 
 let next_id =
   let n = ref (-1) in

@@ -19,33 +19,73 @@ type expr =
       statement that evaluates some conditionals and then jumps to
       one of the destinations (the statement will never "fall through") *)
   | Cx of (Temp.label * Temp.label -> Ir.stmt)
-  [@@deriving show { with_path = false }]
+[@@deriving show { with_path = false }]
 
 (* Sometimes we will have an expression of one kind and
    we will need to convert it to an equivalent
    expression of another kind. It is helpful to have
    the following 3 conversion functions: *)
 
-let unEx (expr : expr) = Ir.(~$ 0)
-(* let unEx expr =
- *   let open Ir in
- *   match expr with
- *   | Ex e -> e
- *   | Cx gen_stmt ->
- *     let r = Temp.mk () in
- *     let t = Temp.mk_label None in
- *     let f = Temp.mk_label None in
- *     ESeq (mk_seq(
- *         Move(Temp r, Const 1),
- *         gen_stmt(t, f),
- *         Label f,
- *         Move (Temp r, Const 0),
- *         Label t
- *       ), Temp r)
- *   | Nx s -> ESeq (s, Const 0) *)
+(* Converts any [expr] to [Ir.expr]
+   (something that returns a result) *)
+let unEx expr =
+  let open Ir in
+  match expr with
+  (* It is already [expr], nothing to do *)
+  | Ex e -> e
+  (* Convert conditional expression of type
+     [Temp.label * Temp.label -> Ir.stmt] to [Ir.expr] *)
+  | Cx cond ->
+    (* We'll keep the result in [r] temporary (value held in some register) *)
+    let r = Temp.mk () in
+    let t = Temp.mk_label None in (* true-branch label *)
+    let f = Temp.mk_label None in (* false-branch label *)
+    (* Side-effecting-sequence of [Ir.stmt] instructions
+       that sets the [r] temp, which is our return value *)
+    let eff = seq
+        [ ~*r <<< ~$1 (* Initially set the [r]esult temp (register) to 1 *)
+        ; cond(t, f)  (* Evaluates conditional and jumps to the [t] or [f] label *)
+        ; Label f
+        ; ~*r <<< ~$0 (* Set the [r]result to 0 *)
+        ; Label t
+        ] in
+    ESeq (eff, ~*r)
+  (* We return 0 in case of "no result" [Ir.stmt] *)
+  | Nx s -> ESeq (s, ~$0)
 
-let unNx expr = expr
-let unCx expr = expr
+(* Convert any [expr] to [Ir.stmt] *)
+let unNx expr =
+  let open Ir in
+  match expr with
+  (* Evaluate [e] and discard the result *)
+  | Ex e -> Expr e
+  (* It is already [stmt], nothing to do *)
+  | Nx s -> s
+  (* In either case jump to the label [l] *)
+  | Cx cond ->
+    let l = Temp.mk_label None in
+    let eff = cond(l, l) in
+    Seq(eff, Label l)
+
+(* Convert any [expr] to
+   [Temp.label * Temp.label -> Ir.stmt] *)
+let unCx expr =
+  let open Ir in
+  match expr with
+  (* In case of 0 always jump to the false-branch *)
+  | Ex (Const 0) -> fun (_, f) -> ~:f <|~ [f]
+  (* In case of 1 always jump to the true-branch *)
+  | Ex (Const 1) -> fun (t, _) -> ~:t <|~ [t]
+  (* Convert the reqular [expr] as:
+     if e = 0
+     then jump to the false-branch
+     else jump to the true-branch *)
+  | Ex e -> fun (f, t) -> (* <- Notice the opposite order of labels *)
+    CJump { left = e; op = Eq; right = ~$0; t; f }
+  (* Nothing to do *)
+  | Cx cond -> cond
+  (* Impossible *)
+  | Nx _ -> failwith ""
 
 type level = {
   parent: level option;
@@ -54,7 +94,8 @@ type level = {
 
 (* The [level] part will be necessary later for calculating static links,
    when the variable is accessed from a (possibly) different level *)
-type access = level * F.access [@@deriving show]
+type access = level * F.access
+[@@deriving show { with_path = false }]
 
 let outermost =
   let label = Temp.mk_label None in
@@ -111,9 +152,9 @@ let alloc_local ~level ~escapes =
 let cjump left op right =
   Cx (fun (t, f) -> Ir.(CJump { op = relop_of_op op; left; right; t; f }))
 
-let e_unit  = Ex Ir.(~$ 0)
-let e_nil   = Ex Ir.(~$ 0)
-let e_int n = Ex Ir.(~$ n)
+let e_unit  = Ex Ir.(~$0)
+let e_nil   = Ex Ir.(~$0)
+let e_int n = Ex Ir.(~$n)
 
 (* A string literal in the Tiger language is the constant
    address of a segment of memory initialized to the proper characters.
@@ -155,19 +196,19 @@ let e_relop (l, op, r) =
    definition (the [level] within the [access]).
    See the [Sl.follow] function for details *)
 
-let e_simple_var (access, level) = Ex Ir.(~$ 0)
-let e_field_var (expr, name, fields) = Ex Ir.(~$ 0)
-let e_subscript_var (expr, sub) = Ex Ir.(~$ 0)
+let e_simple_var (access, level) = Ex Ir.(~$0)
+let e_field_var (expr, name, fields) = Ex Ir.(~$0)
+let e_subscript_var (expr, sub) = Ex Ir.(~$0)
 
-let e_record _ = Ex Ir.(~$ 0)
-let e_array _ = Ex Ir.(~$ 0)
-let e_cond _ = Ex Ir.(~$ 0)
-let e_loop _ = Ex Ir.(~$ 0)
-let e_break _ = Ex Ir.(~$ 0)
-let e_call _ = Ex Ir.(~$ 0)
-let e_assign _ = Ex Ir.(~$ 0)
-let e_seq _ = Ex Ir.(~$ 0)
-let e_let _ = Ex Ir.(~$ 0)
+let e_record _ = Ex Ir.(~$0)
+let e_array _ = Ex Ir.(~$0)
+let e_cond _ = Ex Ir.(~$0)
+let e_loop _ = Ex Ir.(~$0)
+let e_break _ = Ex Ir.(~$0)
+let e_call _ = Ex Ir.(~$0)
+let e_assign _ = Ex Ir.(~$0)
+let e_seq _ = Ex Ir.(~$0)
+let e_let _ = Ex Ir.(~$0)
 
 let dummy_expr () = Ex (Ir.Const 1)
 

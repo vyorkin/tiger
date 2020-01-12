@@ -48,19 +48,6 @@ val alloc_local : level:level -> escapes:bool -> access
 val e_unit : expr
 val e_nil : expr
 val e_int : int -> expr
-
-(** A string literal in the Tiger language is the constant
-    address of a segment of memory initialized to the proper characters.
-    In assembly language a label is used to refer to this address from
-    the middle of some sequence of instructions. At some other place in
-    the assembly-language program, the definition of that label appears,
-    followed by the assembly-language pseudo-instruction to reserve and
-    initialize a block of memory to the appropriate characters.
-
-    For each string literal [lit], the [Translate] module makes a
-    new [label] [lab], and returns the [Ir.Name lab]. It also puts the
-    assembly-language fragment [Frame.]
- **)
 val e_string : string -> expr
 val e_binop : expr * Syntax.op * expr -> expr
 val e_relop : expr * Syntax.op * expr -> expr
