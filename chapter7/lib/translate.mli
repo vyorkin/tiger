@@ -38,6 +38,32 @@ val formals : level -> access list
     The argument [bool] specifies whether the variable escapes *)
 val alloc_local : level:level -> escapes:bool -> access
 
+(** Static link -- pointer to / address of the frame of
+    the function statically enclosing current function **)
+module Sl : sig
+  (** We need to use static links to access variables
+      declared at an outer level of static scope.
+
+      For example, to access some variable [x] which is declared
+      somewhere outside of the current level/scope/frame the
+      generated IR code should look like:
+
+      Mem(BinOp(Const k_n, Plus, Mem(BinOp(Const k_n-1, Plus,
+      ...
+      Mem(BinOp(Const k_1, Plus, Temp fp))))))
+
+      where k_1,...,k_n-1 are the various SL offsets in nested functions,
+      and k_n is the offset of our variable [x] in its own frame.
+
+      This function follows static links (SL) between the
+      [current] [Translate.level] of use and the [Translate.level] of [definition]. *)
+  val follow : cur:level -> def:level -> Ir.expr
+end
+
+module Printer : sig
+  val print_expr : expr -> string
+end
+
 (* The manipulation of [Ir.t] nodes should all be in
    this module, not it [Semant]. Doing it in [Semant] would
    clutter up the readability of that moudle and would make
@@ -52,8 +78,8 @@ val e_string : string -> expr
 val e_binop : expr * Syntax.op * expr -> expr
 val e_relop : expr * Syntax.op * expr -> expr
 val e_simple_var : access * level -> expr
-val e_field_var : expr * Symbol.t * Symbol.t list -> expr
 val e_subscript_var : expr * expr -> expr
+val e_field_var : expr * Symbol.t * Symbol.t list -> expr
 val e_record : expr list -> expr
 val e_array : expr * expr -> expr
 val e_cond : expr * expr * expr option -> expr
@@ -64,8 +90,4 @@ val e_assign : expr * expr -> expr
 val e_seq : expr list -> expr
 val e_let : expr list * expr -> expr
 
-val dummy_expr : unit -> expr
-
-module Printer : sig
-  val print_expr : expr -> string
-end
+val e_dummy : unit -> expr

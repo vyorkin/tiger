@@ -22,12 +22,12 @@ let ret expr ty =
   Trace.SemanticAnalysis.ret expr ty;
   { expr; ty }
 
-let dummy_expr = Tr.dummy_expr ()
+let e_dummy = Tr.e_dummy ()
 
-let ret_int = ret dummy_expr T.Int
-let ret_string = ret dummy_expr T.String
-let ret_nil = ret dummy_expr T.Nil
-let ret_unit = ret dummy_expr T.Unit
+let ret_int = ret e_dummy T.Int
+let ret_string = ret e_dummy T.String
+let ret_nil = ret e_dummy T.Nil
+let ret_unit = ret e_dummy T.Unit
 
 let type_mismatch_error4 msg l t1 t2 =
   let msg' = sprintf
@@ -104,7 +104,7 @@ and trans_expr expr ~env =
           "function \"%s\" expects %d formal arguments, but %d was given"
           (f.L.value.S.name) (List.length formals) (List.length args) ;
       List.iter2_exn formals args ~f:(assert_ty ~env);
-      T.(ret dummy_expr ~!result)
+      T.(ret e_dummy ~!result)
 
   (* In our language binary operators work only with
      integer operands, except for (=) and (<>) *)
@@ -121,7 +121,7 @@ and trans_expr expr ~env =
     let { ty = ty_r; _ } = tr_expr r ~env in
     if T.(~!ty_l <> ~!ty_r)
     then type_mismatch_error3 expr ty_l ty_r;
-    ret dummy_expr ty_l
+    ret e_dummy ty_l
 
   and assert_op l r ~env =
     assert_int l ~env;
@@ -133,7 +133,7 @@ and trans_expr expr ~env =
     let { ty = var_ty; _ } = tr_var var ~env in
     let { ty = expr_ty; _ } = tr_expr expr ~env in
     if T.(var_ty = expr_ty)
-    then ret dummy_expr var_ty
+    then ret e_dummy var_ty
     else type_error expr @@ sprintf
         "invalid assigment of type \"%s\" to a variable of type \"%s\""
         (T.to_string expr_ty) (T.to_string var_ty)
@@ -153,13 +153,13 @@ and trans_expr expr ~env =
     let { ty = t_ty; _ } = tr_expr t ~env in
     match f with
     | None ->
-      ret dummy_expr t_ty
+      ret e_dummy t_ty
     | Some f ->
       (* If there is a false-branch then we should
          check if types of both branches match *)
       let { ty = f_ty; _ } = tr_expr f ~env in
       if T.(t_ty = f_ty)
-      then ret dummy_expr t_ty
+      then ret e_dummy t_ty
       else type_error expr @@ sprintf
           "different types of branch expressions: \"%s\" and \"%s\""
           (T.to_string t_ty) (T.to_string f_ty)
@@ -217,7 +217,7 @@ and trans_expr expr ~env =
       (* We want to check each field of the variable
          against the corresponding record type definition *)
       List.iter ~f:(tr_record_field rec_typ tfields ~env) vfields;
-      ret dummy_expr rec_typ
+      ret e_dummy rec_typ
     | _ ->
       type_error ty_name @@ sprintf
         "\"%s\" is not a record" (T.to_string rec_typ)
@@ -234,7 +234,7 @@ and trans_expr expr ~env =
       let t = ~!tn in
       let init_t = ~!init_tn in
       if t = init_t
-      then ret dummy_expr arr_ty
+      then ret e_dummy arr_ty
       else type_mismatch_error4
           "invalid type of array initial value, " init t init_t
     | _ ->
@@ -255,7 +255,7 @@ and trans_expr expr ~env =
     Trace.SemanticAnalysis.tr_simple_var var;
     match ST.look_var env.venv var with
     | VarEntry { ty; _ }  ->
-      T.(ret dummy_expr ~!ty)
+      T.(ret e_dummy ~!ty)
     | FunEntry { formals; result; _ } ->
       let signature =
         formals
@@ -276,7 +276,7 @@ and trans_expr expr ~env =
          lets try to find a type for the given [field],
          it is the type of the [FieldVar] expression  *)
       (match List.Assoc.find fields ~equal:S.equal field.L.value with
-       | Some tt -> T.(ret dummy_expr ~!tt)
+       | Some tt -> T.(ret e_dummy ~!tt)
        | None -> missing_field_error rec_ty.ty field)
     | _ ->
       type_error var @@ sprintf
@@ -289,7 +289,7 @@ and trans_expr expr ~env =
     match arr_ty.ty with
     | Array (tn, _) ->
       assert_int sub ~env;
-      T.(ret dummy_expr ~!tn)
+      T.(ret e_dummy ~!tn)
     | _ ->
       type_error var @@ sprintf
         "\"%s\" is not an array" (T.to_string arr_ty.ty)

@@ -40,13 +40,13 @@ let unEx expr =
     let r = Temp.mk () in
     let t = Temp.mk_label None in (* true-branch label *)
     let f = Temp.mk_label None in (* false-branch label *)
-    (* Side-effecting-sequence of [Ir.stmt] instructions
-       that sets the [r] temp, which is our return value *)
+    (* Sequence of [Ir.stmt] instructions that
+       sets the [r] temp, which is our return value *)
     let eff = seq
         [ ~*r <<< ~$1 (* Initially set the [r]esult temp (register) to 1 *)
         ; cond(t, f)  (* Evaluates conditional and jumps to the [t] or [f] label *)
         ; Label f
-        ; ~*r <<< ~$0 (* Set the [r]result to 0 *)
+        ; ~*r <<< ~$0 (* Set the [r]esult to 0 *)
         ; Label t
         ] in
     ESeq (eff, ~*r)
@@ -147,6 +147,44 @@ let alloc_local ~level ~escapes =
   let access = F.alloc_local level.frame ~escapes in
   level, access
 
+module Sl = struct
+(* One thing to notice:
+
+   We always know that SL is the first in the
+   list of formals of a stack frame, so it always
+   looks like [InFrame 0]. This means that we can simplify our
+   formula to the following degenerated case:
+
+   Mem(k_n <+> Mem(K_n-1 <+> ... <+> Mem(K_1 + FP)))
+   where
+   K_n = K_n-1 = ... K_1 = 0
+
+   So the resulting expression becomes just:
+
+   Mem(Mem(...Mem(FP)))
+
+   But let's implement a general-form of it *)
+
+let rec follow ~cur ~def =
+  if F.(cur.frame = def.frame)
+  then
+    (* Variable is defined in the current scope/level *)
+    Ir.Temp F.fp
+  else
+    (* Variable is defined in an outer scope/level *)
+    match F.formals cur.frame with
+    | sl :: _ ->
+      (match cur.parent with
+       | None ->
+         failwith "Nested level without parent"
+       | Some parent ->
+         let addr = follow ~cur:parent ~def in
+         F.expr sl ~addr
+      )
+    | [] ->
+      failwith "No static link in formals"
+end
+
 (* Helper function to simplify
    construction of conditional expressions *)
 let cjump left op right =
@@ -196,9 +234,18 @@ let e_relop (l, op, r) =
    definition (the [level] within the [access]).
    See the [Sl.follow] function for details *)
 
-let e_simple_var (access, level) = Ex Ir.(~$0)
+let e_simple_var ((var_level, access), level) =
+  let addr = Sl.follow ~cur:level ~def:var_level in
+  Ex (F.expr access ~addr)
+
+let e_subscript_var (expr, sub) =
+  let e = unEx expr in
+  let i = unEx sub in
+  Ex Ir.(indexed e i F.word_size)
+
 let e_field_var (expr, name, fields) = Ex Ir.(~$0)
-let e_subscript_var (expr, sub) = Ex Ir.(~$0)
+  (* let l = unEx expr in
+   * Ex (l <-> ~$ ) *)
 
 let e_record _ = Ex Ir.(~$0)
 let e_array _ = Ex Ir.(~$0)
@@ -209,8 +256,7 @@ let e_call _ = Ex Ir.(~$0)
 let e_assign _ = Ex Ir.(~$0)
 let e_seq _ = Ex Ir.(~$0)
 let e_let _ = Ex Ir.(~$0)
-
-let dummy_expr () = Ex (Ir.Const 1)
+let e_dummy () = Ex (Ir.Const 1)
 
 (** Helper module for pretty printing translated expressions *)
 module Printer = struct

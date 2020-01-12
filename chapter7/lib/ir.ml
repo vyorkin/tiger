@@ -136,13 +136,19 @@ let (<|~) e labels = Jump (e, labels)
 (* Other helper operators for convenience
    (see the Page 155 of the Tiger book for the equivalent definition) *)
 
-let (<+>) l r = ~@ (l |+| r)
-let (<->) l r = ~@ (l |-| r)
+let (<+>) l r = ~@(l |+| r)
+let (<->) l r = ~@(l |-| r)
 
 (* Helper function to ease construction of
-   array elements and record fields accessor IR *)
+   array elements and record fields accessor IR.
 
-let indexed e i n = ~@ (e <+> i |*| ~$ n)
+   If [a] is a memory-resident array variable represented as [Mem(e)],
+   then the contents of address [e] will be a one-word pointer value [p].
+   The contents of addresses [p], [p + w], [p + 2*w], ... [p + n*w]
+   (where [w] is the word size) will be elements of the array
+   (all elements are one word long) *)
+
+let indexed e i w = ~@(~@e |+| (i |*| ~$w))
 
 (* Helper function to construct a sequence of statements *)
 let rec seq = function
