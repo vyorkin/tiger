@@ -14,10 +14,12 @@ type expr =
   | Ex of Ir.expr
   (** "No result" represented as [Ir.stmt] *)
   | Nx of Ir.stmt
-  (** "Conditional" represented as a function from label-pair to [Ir.stmt].
-      If you pass it a true-destination and a false-destination, it will make a
-      statement that evaluates some conditionals and then jumps to
-      one of the destinations (the statement will never "fall through") *)
+  (** "Conditional" represented as a function from
+      label-pair to [Ir.stmt]. If you pass it a
+      true-destination and a false-destination,
+      it will make a statement that evaluates some
+      conditionals and then jumps to one of the destinations
+      (the statement will never "fall through") *)
   | Cx of (Temp.label * Temp.label -> Ir.stmt)
 [@@deriving show { with_path = false }]
 
@@ -36,20 +38,20 @@ let unEx expr =
   (* Convert conditional expression of type
      [Temp.label * Temp.label -> Ir.stmt] to [Ir.expr] *)
   | Cx cond ->
-    (* We'll keep the result in [r] temporary (value held in some register) *)
+    (* We keep the result in [r] temporary (register) *)
     let r = Temp.mk () in
     let t = Temp.mk_label None in (* true-branch label *)
     let f = Temp.mk_label None in (* false-branch label *)
     (* Sequence of [Ir.stmt] instructions that
        sets the [r] temp, which is our return value *)
-    let eff = seq
+    let stmt = seq
         [ ~*r <<< ~$1 (* Initially set the [r]esult temp (register) to 1 *)
         ; cond(t, f)  (* Evaluates conditional and jumps to the [t] or [f] label *)
-        ; Label f
+        ; ~|f         (* False-branch *)
         ; ~*r <<< ~$0 (* Set the [r]esult to 0 *)
-        ; Label t
+        ; ~|t         (* Do nothing ([r]esult is already set to 1) *)
         ] in
-    ESeq (eff, ~*r)
+    ESeq (stmt, ~*r)
   (* We return 0 in case of "no result" [Ir.stmt] *)
   | Nx s -> ESeq (s, ~$0)
 
@@ -61,13 +63,14 @@ let unNx expr =
   | Ex e -> Expr e
   (* It is already [stmt], nothing to do *)
   | Nx s -> s
-  (* In either case jump to the label [l] *)
+  (* In either case jump to the label [l]
+     (which means that we just continue execution) *)
   | Cx cond ->
     let l = Temp.mk_label None in
-    let eff = cond(l, l) in
-    Seq(eff, Label l)
+    let stmt = cond(l, l) in
+    Seq(stmt, ~|l)
 
-(* Convert any [expr] to
+(* Convert any [expr] (except [Nx]) to
    [Temp.label * Temp.label -> Ir.stmt] *)
 let unCx expr =
   let open Ir in
@@ -85,7 +88,8 @@ let unCx expr =
   (* Nothing to do *)
   | Cx cond -> cond
   (* Impossible *)
-  | Nx _ -> failwith ""
+  (* TODO: add a more reasonable error msg *)
+  | Nx _ -> failwith "unCx can not convert Nx (statement) to Cx (conditional)"
 
 type level = {
   parent: level option;
@@ -121,8 +125,8 @@ let frames_path level =
 let new_level ~parent ~label ~formals =
   (* The first "formal" is static link (SL) which
      is a frame pointer (FP) that we'll use for
-     calculating the variable address, when the variable is
-     accessed from a nested level/scope/frame *)
+     calculating the variable address, when the
+     variable is accessed from a nested level/scope *)
   let static_link = true in
   let formals = static_link :: formals in
   let frame = F.mk ~label ~formals in
@@ -148,41 +152,41 @@ let alloc_local ~level ~escapes =
   level, access
 
 module Sl = struct
-(* One thing to notice:
+  (* One thing to notice:
 
-   We always know that SL is the first in the
-   list of formals of a stack frame, so it always
-   looks like [InFrame 0]. This means that we can simplify our
-   formula to the following degenerated case:
+     We always know that SL is the first in the
+     list of formals of a stack frame, so it always
+     looks like [InFrame 0]. This means that we can simplify our
+     formula to the following degenerated case:
 
-   Mem(k_n <+> Mem(K_n-1 <+> ... <+> Mem(K_1 + FP)))
-   where
-   K_n = K_n-1 = ... K_1 = 0
+     Mem(k_n <+> Mem(K_n-1 <+> ... <+> Mem(K_1 + FP)))
+     where
+     K_n = K_n-1 = ... K_1 = 0
 
-   So the resulting expression becomes just:
+     So the resulting expression becomes just:
 
-   Mem(Mem(...Mem(FP)))
+     Mem(Mem(...Mem(FP)))
 
-   But let's implement a general-form of it *)
+     But let's implement a general-form of it *)
 
-let rec follow ~cur ~def =
-  if F.(cur.frame = def.frame)
-  then
-    (* Variable is defined in the current scope/level *)
-    Ir.Temp F.fp
-  else
-    (* Variable is defined in an outer scope/level *)
-    match F.formals cur.frame with
-    | sl :: _ ->
-      (match cur.parent with
-       | None ->
-         failwith "Nested level without parent"
-       | Some parent ->
-         let addr = follow ~cur:parent ~def in
-         F.expr sl ~addr
-      )
-    | [] ->
-      failwith "No static link in formals"
+  let rec follow ~cur ~def =
+    if F.(cur.frame = def.frame)
+    then
+      (* Variable is defined in the current scope/level *)
+      Ir.Temp F.fp
+    else
+      (* Variable is defined in an outer scope/level *)
+      match F.formals cur.frame with
+      | sl :: _ ->
+        (match cur.parent with
+         | None ->
+           failwith "Nested level without parent"
+         | Some parent ->
+           let addr = follow ~cur:parent ~def in
+           F.expr sl ~addr
+        )
+      | [] ->
+        failwith "No static link in formals"
 end
 
 (* Helper function to simplify
@@ -211,7 +215,7 @@ let e_string s =
   let l = Temp.mk_label None in
   (* TODO: fragments := F.String (l, s) :: !fragments; *)
   (* TODO: Lookup the given [s] in existing fragments before adding a new one *)
-  Ex Ir.(~: l)
+  Ex Ir.(~:l)
 
 (* Integer arithmetic is easy to translate (see p.161).
    It's easy to convince yourself that each arithmetic
@@ -244,18 +248,102 @@ let e_subscript_var (expr, sub) =
   Ex Ir.(indexed e i F.word_size)
 
 let e_field_var (expr, name, fields) = Ex Ir.(~$0)
-  (* let l = unEx expr in
-   * Ex (l <-> ~$ ) *)
+(* let l = unEx expr in
+ * Ex (l <-> ~$ ) *)
 
 let e_record _ = Ex Ir.(~$0)
 
 (* This refers to an external function [init_array] which
    is written in a language such as C or assembly language *)
 let e_array (size, init) =
-  let args = [unEx(size); unEx(init)] in
+  let args = [unEx size; unEx init] in
   Ex Ir.(external_call "init_array" args)
 
-let e_cond _ = Ex Ir.(~$0)
+(* Produces an IR [expr] corresponding to the
+   conditional expression of the AST *)
+let e_cond (cond_expr, then_expr, else_expr) =
+  let open Ir in
+  let t = Temp.mk_label None in (* True-branch label *)
+  let f = Temp.mk_label None in (* False-branch label *)
+  (* [cond_expr] can't be [Nx] (no-value), so
+     we may simply apply the [unCx] to it *)
+  let cond = unCx cond_expr in
+  (* The basic idea here is to make [else_expr] match [then_expr] (or vice versa).
+     So if [then_expr] is [Ex] then we know that our conditional
+     expression should return some value, hence we should
+     use [unEx] to make sure that our else-branch also returns
+     a value by converting it to [Ex] (of course if it exists).
+     Same thing for [Nx] (statements) and [Cx] (conditionals) *)
+  match then_expr, else_expr with
+  (* "then" is an expression (that returns a value),
+      so we need produce an [ESeq] here
+      (a sequence of statements that returns something) *)
+  | Ex then_ex, Some else_e ->
+    let r = Temp.mk () in (* Result label *)
+    let x = Temp.mk_label None in (* Exit/join label *)
+    let stmt = seq
+        [ cond(t, f) (* [stmt] that jumps to [t] or [f] label *)
+        ; ~|t (* if cond is true *)
+        ; ~*r <<< then_ex (* r := then_ex *)
+(*  --*); ~:x <|~ [x] (* jump to the [x] label *)
+(* |  *); ~|f (* else *)
+(* |  *); ~*r <<< unEx else_e (* r := unEx(else_e) *)
+(*  ->*); ~|x (* exit/join *)
+        ] in
+    Ex (ESeq(stmt, ~*r))
+  (* "then" is a "no result" (with "else" branch) *)
+  | Nx then_nx, Some else_e ->
+    let x = Temp.mk_label None in
+    let stmt = seq
+        [ cond(t, f)
+        ; ~|t
+        ; then_nx
+(*  --*); ~:x <|~ [x]
+(* |  *); ~|f
+(* |      In this case we don't care what the
+   |      [else_e] actually is, so just [unNx] it
+   |      (we always discard the result of [else_e])
+   |  *); unNx else_e
+(*  ->*); ~|x
+        ] in
+    Nx stmt
+  (* "then" is a "no result" (without "else" branch) *)
+  | Nx then_nx, None ->
+    let stmt = seq
+        [ cond(t, f)
+        ; ~|t
+        ; then_nx
+        ; ~|f
+        ] in
+    Nx stmt
+  (* As noted in the book, the [Cx] case is special (see p.162)
+     and it makes sense to recognize and handle it seprately with care *)
+  (* 1. "then" is a conditional expr, "else" is a "no-value" (statement).
+        This is an impossible case and the [Semant] module should fail in such cases *)
+  | Cx _, Some (Nx _) ->
+    failwith "Translation phase has detected that \
+then-branch is a conditional expression, but else-branch is a statement. \
+Looks like semantic analysis is broken."
+  (* 1. "then" is a conditional expr,
+        "else" is a regular or conditional expr *)
+  | Cx then_cx, Some (Ex _ | Cx _ as else_e) ->
+    (* In case of [else_e] is a regular expression - convert it to [Cx] *)
+    let else_cx = unCx else_e in
+    let stmt (t', f') = seq
+        [ cond(t, f)           (* CJump(op1, a1, b1, t, f) *)
+        ; ~|t; then_cx(t', f') (* t: CJump(op2, a2, b2, t', f') *)
+        ; ~|f; else_cx(t', f') (* f: CJump(op3, a3, b2, t', f') or CJump(Eq, else_e, 0, t', f') *)
+        ] in
+    Cx stmt
+  | then_ex, None ->
+    let stmt = seq
+        [ cond(t, f)
+        ; ~|t
+        ; unNx then_ex
+        ; ~|f
+        ] in
+    Ex (ESeq(stmt, ~$0))
+
 let e_loop _ = Ex Ir.(~$0)
 let e_break _ = Ex Ir.(~$0)
 let e_call _ = Ex Ir.(~$0)

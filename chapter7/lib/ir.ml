@@ -49,7 +49,7 @@ and stmt =
   | Seq of stmt * stmt
   (** Define the constant value of name [n] to be the current machine code address.
       This is like a label definition in assembly language. The value
-      [Name n] may be the target of jumps, calls, etc *)
+      [Label n] may be the target of jumps, calls, etc *)
   | Label of Temp.label
   [@@deriving show { with_path = false }]
 
@@ -121,7 +121,7 @@ let (|*|) l r = BinOp(l, Mul, r)
 
 (** Constant operator *)
 let (~$) k = Const k
-(** Label operator **)
+(** Label expression operator **)
 let (~:) l = Name l
 (** Memory access operator **)
 let (~@) e = Mem e
@@ -129,6 +129,8 @@ let (~@) e = Mem e
 let (~*) t = Temp t
 
 (* [stmt] operators *)
+
+let (~|) l = Label l
 
 let (<<<) e1 e2 = Move(e1, e2)
 let (<|~) e labels = Jump(e, labels)
@@ -151,9 +153,8 @@ let indexed e i w = ~@(~@e |+| (i |*| ~$w))
 
 (** Helper function to construct a sequence of statements **)
 let rec seq = function
-  | s1 :: [] -> s1
-  | s1 :: s2 :: [] -> Seq (s1, s2)
-  | s1 :: ss -> Seq (s1, seq ss)
+  | s :: [] -> s
+  | s :: ss -> Seq(s, seq ss)
   | [] -> Expr ~$0
 
 (** The implementation depends on the releationship between Tiger's

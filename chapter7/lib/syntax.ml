@@ -4,6 +4,11 @@ module L = Location
 module S = Symbol
 module T = Type
 
+(* Records and arrays have infinite extent:
+   each record or array value lasts forever,
+   even after control exits from the scope in
+   which it was created*)
+
 type op =
   (* arithmetics *)
   | Plus

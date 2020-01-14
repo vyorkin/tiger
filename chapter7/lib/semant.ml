@@ -153,6 +153,7 @@ and trans_expr expr ~env =
     let { ty = t_ty; _ } = tr_expr t ~env in
     match f with
     | None ->
+      assert_unit t ~env;
       ret e_dummy t_ty
     | Some f ->
       (* If there is a false-branch then we should
