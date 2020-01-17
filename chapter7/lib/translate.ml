@@ -154,7 +154,7 @@ let alloc_local ~level ~escapes =
   let access = F.alloc_local level.frame ~escapes in
   level, access
 
-module StaticLink = struct
+module Sl = struct
   (* One thing to notice:
 
      We always know that SL is the first in the
@@ -237,9 +237,9 @@ let e_relop (l, op, r) =
    static links for all frames between the level of use
    (the [level] passed to [e_simple_var]) and the level of
    definition (the [level] within the [access]).
-   See the [StaticLink.follow] function for details *)
+   See the [Sl.follow] function for details *)
 let e_simple_var ((var_level, access), level) =
-  let addr = StaticLink.follow ~cur:level ~def:var_level in
+  let addr = Sl.follow ~cur:level ~def:var_level in
   Ex (F.access_expr access ~addr)
 
 let e_subscript_var expr sub =
@@ -414,20 +414,21 @@ let e_loop (cond_expr, body_expr, done_l) =
 (* Here [l] is the "done" label of the
    nearest enclosing loop (see p.165 of the Tiger book
    and the [loop] function definition above) *)
-let e_break l = Nx Ir.(~:l <|~ [l])
+let e_break l =
+  Nx Ir.(~:l <|~ [l])
 
-let e_call (label, args) (def_level, cur_level) is_proc =
+let e_call (label, args) (cur_level, def_level) is_proc =
   let open Ir in
   let args_e = List.map args ~f:unEx in
-  let call_args = match def_level.parent with
+  let args_e =
+    match def_level.parent with
     | None -> args_e
-    | Some def_parent ->
-      let sl = StaticLink.follow ~cur:cur_level ~def:def_parent in
-      sl :: args_e in
-  let call = Call (~:label, call_args) in
-  if is_proc
-  then Nx (Expr call)
-  else Ex call
+    | Some def ->
+      let sl = Sl.follow ~cur:cur_level ~def in
+      sl :: args_e
+  in
+  let call = Call (~:label, args_e) in
+  if is_proc then Nx (Expr call) else Ex call
 
 let e_assign (dst, src) =
   Nx Ir.(unEx dst <<< unEx src)

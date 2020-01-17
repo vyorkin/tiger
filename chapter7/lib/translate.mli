@@ -43,9 +43,9 @@ val formals : level -> access list
     The argument [bool] specifies whether the variable escapes *)
 val alloc_local : level:level -> escapes:bool -> access
 
-(** Static link -- pointer to / address of the frame of
+(** Static link (SL) -- pointer to / address of the frame of
     the function statically enclosing current function **)
-module StaticLink : sig
+module Sl : sig
   (** We need to use static links to access variables
       declared at an outer level of static scope.
 

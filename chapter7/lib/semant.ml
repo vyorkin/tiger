@@ -112,7 +112,7 @@ and trans_expr expr ~env =
       let result = T.(~!(fn.result)) in
       let is_proc = T.(result = Unit) in
       let args_e = List.map args_r ~f:(fun a -> a.expr) in
-      let expr = Tr.e_call (fn.label, args_e) (fn.level, env.level) is_proc in
+      let expr = Tr.e_call (fn.label, args_e) (env.level, fn.level) is_proc in
       ret expr result
 
   (* In our language binary operators work only with
