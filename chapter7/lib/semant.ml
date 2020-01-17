@@ -126,7 +126,7 @@ and trans_expr expr ~env =
     let { ty = ty_r; _ } = tr_expr r ~env in
     if T.(~!ty_l <> ~!ty_r)
     then type_mismatch_error3 expr ty_l ty_r;
-    ret e_dummy ty_l
+    ret_int
 
   and assert_op l r ~env =
     assert_int l ~env;

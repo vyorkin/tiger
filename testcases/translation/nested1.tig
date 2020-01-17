@@ -21,7 +21,7 @@ let
                write("\n")
           )
         in
-          if 1
+          if t = nil
           then indent(".")
           else (
             indent(t.key);
