@@ -345,8 +345,7 @@ and trans_fun_decs fs ~env =
     Trace.SemanticAnalysis.trans_fun_head fun_dec;
     let { fun_name; params; result_typ; _ } = fun_dec.L.value in
     (* Translate function arguments *)
-    let tr_param (param : field) = param, ST.look_typ env.tenv param.typ in
-    let args = List.map params ~f:tr_param in
+    let args = List.map params ~f:(fun p -> p, ST.look_typ env.tenv p.typ) in
     (* Translate the result type *)
     let result = match result_typ with
       | None -> T.Unit
