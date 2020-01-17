@@ -21,7 +21,7 @@ module SemanticAnalysis : sig
   val tr_field_var : var L.t -> S.t L.t -> unit
   val tr_subscript_var : var L.t -> expr L.t -> unit
   val tr_call : S.t L.t -> expr L.t list -> unit
-  val tr_op : expr L.t -> expr L.t -> op -> unit
+  val tr_op : expr L.t -> op -> expr L.t -> unit
   val tr_record : S.t L.t -> (S.t L.t * expr L.t) list -> unit
   val tr_record_field : S.t L.t -> expr L.t -> T.t -> unit
   val tr_seq : (expr L.t) list -> unit

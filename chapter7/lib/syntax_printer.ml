@@ -17,7 +17,7 @@ let rec print_expr = function
   | Call (f, args) ->
     print_call f args
   | Op (l, op, r) ->
-    print_op l r op.L.value
+    print_op l op.L.value r
   | Record (ty_name, vfields) ->
     print_record ty_name vfields
   | Seq exprs ->
@@ -62,7 +62,7 @@ and print_int x =
 and print_string s =
   sprintf "\"%s\"" s.L.value
 
-and print_op l r op =
+and print_op l op r =
   sprintf "%s %s %s"
     (print_expr l.L.value)
     (print_op_sym op)

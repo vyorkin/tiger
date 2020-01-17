@@ -52,8 +52,8 @@ module SemanticAnalysis = struct
     trace_tr "tr_subscript_var" (print_subscript_var var sub)
   let tr_call f args =
     trace_tr "tr_call" (print_call f args)
-  let tr_op l r op =
-    trace_tr "tr_op" (print_op l r op)
+  let tr_op l op r =
+    trace_tr "tr_op" (print_op l op r)
   let tr_record ty_name vfields =
     trace_tr "tr_record" (print_record ty_name vfields)
   let tr_record_field name expr ty =

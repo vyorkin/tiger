@@ -72,7 +72,7 @@ and trans_expr expr ~env =
     | Int _ -> ret_int
     | String _ -> ret_string
     | Call (f, args) -> tr_call f args ~env
-    | Op (l, op, r) -> tr_op expr l r op.L.value ~env
+    | Op (l, op, r) -> tr_op expr l op.L.value r ~env
     | Record (name, fields) -> tr_record name fields ~env
     | Seq [] -> ret_unit (* in our grammar unit is empty seq *)
     | Seq exprs -> tr_seq exprs ~env
@@ -113,25 +113,26 @@ and trans_expr expr ~env =
 
   (* In our language binary operators work only with
      integer operands, except for (=) and (<>) *)
-  and tr_op expr l r op ~env =
-    Trace.SemanticAnalysis.tr_op l r op;
-    match op with
-    | Syntax.Eq | Syntax.Neq ->
-      assert_comparison expr l r ~env
-    | _ ->
-      assert_op l r ~env
+  and tr_op expr l op r ~env =
+    Trace.SemanticAnalysis.tr_op l op r;
+    (match op with
+     | Syntax.Eq | Syntax.Neq ->
+       assert_comparison expr l r ~env
+     | _ ->
+       assert_op l r ~env
+    );
+    (* Type of the [Syntax.Op l op r] is always [T.Int] *)
+    ret_int
 
   and assert_comparison expr l r ~env =
     let { ty = ty_l; _ } = tr_expr l ~env in
     let { ty = ty_r; _ } = tr_expr r ~env in
     if T.(~!ty_l <> ~!ty_r)
-    then type_mismatch_error3 expr ty_l ty_r;
-    ret_int
+    then type_mismatch_error3 expr ty_l ty_r
 
   and assert_op l r ~env =
     assert_int l ~env;
-    assert_int r ~env;
-    ret_int
+    assert_int r ~env
 
   and tr_assign var expr ~env =
     Trace.SemanticAnalysis.tr_assign var expr;
@@ -198,7 +199,7 @@ and trans_expr expr ~env =
     (* Then translate the body expression using
        the new augmented environments *)
     trans_expr body ~env:env'
-    (* Then the new environments are discarded *)
+  (* Then the new environments are discarded *)
 
   and tr_record_field rec_typ tfields (name, expr) ~env =
     Trace.SemanticAnalysis.tr_record_field name expr rec_typ;
