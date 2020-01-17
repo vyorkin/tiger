@@ -176,7 +176,7 @@ module StaticLink = struct
     if F.(cur.frame = def.frame)
     then
       (* Variable is defined in the current scope/level *)
-      Ir.Temp F.fp
+      Ir.(~*F.fp)
     else
       (* Variable is defined in an outer scope/level *)
       match F.formals cur.frame with
@@ -377,7 +377,7 @@ let e_cond (cond_expr, then_expr, else_expr) =
    So that [tr_expr] can translate [Break] statements, it will
    have a new formal parameter "break" that is the "done" label of
    the nearest enclosing loop. The [Translate.e_break] function
-   takes this "done" label and uses it generate a [Jump] statement.
+   takes this "done" label and uses it to generate a [Jump] statement.
 
    When [Semant.tr_expr] is recursively calling itself in
    nonloop contexts, it can simply pass down the same
@@ -390,8 +390,9 @@ let e_cond (cond_expr, then_expr, else_expr) =
    done:
 
    Note that we rewrite the AST of [For] to the
-   corresponding [While] in the [Semant] module,
-   so we don't have to worry about the difference between them *)
+   corresponding [While] in the [Semant] module
+   (in the [Syntax_rewriter] actually), so we don't
+   have to worry about the difference between them *)
 let e_loop (cond_expr, body_expr, done_l) =
   let open Ir in
   let cond_l = Temp.mk_label None in
@@ -415,7 +416,18 @@ let e_loop (cond_expr, body_expr, done_l) =
    and the [loop] function definition above) *)
 let e_break l = Nx Ir.(~:l <|~ [l])
 
-let e_call _ = Ex Ir.(~$0)
+let e_call (label, args) (def_level, cur_level) is_proc =
+  let open Ir in
+  let args_e = List.map args ~f:unEx in
+  let call_args = match def_level.parent with
+    | None -> args_e
+    | Some def_parent ->
+      let sl = StaticLink.follow ~cur:cur_level ~def:def_parent in
+      sl :: args_e in
+  let call = Call (~:label, call_args) in
+  if is_proc
+  then Nx (Expr call)
+  else Ex call
 
 let e_assign (dst, src) =
   Nx Ir.(unEx dst <<< unEx src)

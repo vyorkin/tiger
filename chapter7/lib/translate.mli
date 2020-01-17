@@ -114,8 +114,12 @@ val e_loop : expr * expr * Temp.label -> expr
 (** Translates a break expression to an [Ir.Jump] to the
     "done"-label of the nearest enclosing loop *)
 val e_break : Temp.label -> expr
-(** Translates call expression at the given label *)
-val e_call : level * Temp.label * expr list * bool -> expr
+(** Translates a call expression at the given label *)
+val e_call
+  :  Temp.label * expr list
+  -> level * level
+  -> bool
+  -> expr
 (** Translates an assignment expression to [Ir.expr] that
     is equivalent to [Move(dst, src)] *)
 val e_assign : expr * expr -> expr

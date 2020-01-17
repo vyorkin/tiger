@@ -99,17 +99,21 @@ and trans_expr expr ~env =
       type_error f @@ sprintf
         "expected function, but found variable \"%s\" of type \"%s\""
         (f.L.value.S.name) (T.to_string ty)
-    | FunEntry { formals; result; _ } ->
+    | FunEntry fn ->
       (* Check if all the arguments are supplied *)
-      if List.length formals <> List.length args then
+      if List.length fn.formals <> List.length args then
         type_error f @@ sprintf
           "function \"%s\" expects %d formal arguments, but %d was given"
-          (f.L.value.S.name) (List.length formals) (List.length args) ;
+          (f.L.value.S.name) (List.length fn.formals) (List.length args) ;
       (* Translate [args] first *)
       let args_r = List.map args ~f:(tr_expr ~env) in
       (* Assert that argument types match types of the function formal parameters *)
-      List.iter2_exn formals args_r ~f:(fun t ({ ty; _ }) -> assert_ty t ty);
-      T.(ret e_dummy ~!result)
+      List.iter2_exn fn.formals args_r ~f:(fun t ({ ty; _ }) -> assert_ty t ty);
+      let result = T.(~!(fn.result)) in
+      let is_proc = T.(result = Unit) in
+      let args_e = List.map args_r ~f:(fun a -> a.expr) in
+      let expr = Tr.e_call (fn.label, args_e) (fn.level, env.level) is_proc in
+      ret expr result
 
   (* In our language binary operators work only with
      integer operands, except for (=) and (<>) *)

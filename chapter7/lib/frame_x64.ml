@@ -104,7 +104,8 @@ let callee_regs = [rbx; r12; r13; r14; r15]
 let access_expr access ~addr =
   let open Ir in
   match access with
-  (* Memory accessor at offset [k] *)
+  (* Memory accessor at offset [k]:
+     [Mem(BinOp(addr, Plus, Const k))] *)
   | InFrame k -> addr <+> ~$k
   (* Temp t *)
   | InReg t -> ~*t
