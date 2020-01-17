@@ -84,7 +84,7 @@ let unCx expr =
      then jump to the false-branch
      else jump to the true-branch *)
   | Ex e -> fun (f, t) -> (* <- Notice the opposite order of labels *)
-    CJump { left = e; op = Eq; right = ~$0; t; f }
+    cjump e Eq ~$0 t f
   (* Nothing to do *)
   | Cx cond -> cond
   (* Impossible *)
@@ -106,13 +106,16 @@ let outermost =
   let frame = F.mk ~label ~formals:[] in
   { parent = None; frame }
 
-let rec frames level =
+let rec parent_frames level =
   match level.parent with
   | None -> [level.frame]
-  | Some parent -> level.frame :: frames parent
+  | Some parent -> level.frame :: parent_frames parent
 
 let frames_path level =
-  level |> frames |> List.map ~f:F.id
+  level |> parent_frames |> List.map ~f:F.id
+
+let nesting_depth level =
+  level |> parent_frames |> List.length
 
 (* In the semantic analysis phase [trans_dec] creates a
    new "nesting level" for each function by calling the [new_level],
@@ -151,7 +154,7 @@ let alloc_local ~level ~escapes =
   let access = F.alloc_local level.frame ~escapes in
   level, access
 
-module Sl = struct
+module StaticLink = struct
   (* One thing to notice:
 
      We always know that SL is the first in the
@@ -183,16 +186,14 @@ module Sl = struct
            failwith "Nested level without parent"
          | Some parent ->
            let addr = follow ~cur:parent ~def in
-           F.expr sl ~addr
+           F.access_expr sl ~addr
         )
       | [] ->
         failwith "No static link in formals"
 end
 
-(* Helper function to simplify
-   construction of conditional expressions *)
-let cjump left op right =
-  Cx (fun (t, f) -> Ir.(CJump { op = relop_of_op op; left; right; t; f }))
+let cx_cjump l op r =
+  Cx (fun (t, f) -> Ir.cjump l op r t f)
 
 let e_unit  = Ex Ir.(~$0)
 let e_nil   = Ex Ir.(~$0)
@@ -229,38 +230,63 @@ let e_binop (l, op, r) =
 (* Making "simple" [Cx] expressions from [Syntax.expr] and
    [Syntax.op] could be done with the [Ir.CJump] operator *)
 let e_relop (l, op, r) =
-  cjump (unEx l) op (unEx r)
+  cx_cjump (unEx l) op (unEx r)
 
 (* The [e_simple_var] must produce a chain of
    [Mem] and [BinOp(Const i, Plus, ...)] nodes to fetch
    static links for all frames between the level of use
    (the [level] passed to [e_simple_var]) and the level of
    definition (the [level] within the [access]).
-   See the [Sl.follow] function for details *)
-
+   See the [StaticLink.follow] function for details *)
 let e_simple_var ((var_level, access), level) =
-  let addr = Sl.follow ~cur:level ~def:var_level in
-  Ex (F.expr access ~addr)
+  let addr = StaticLink.follow ~cur:level ~def:var_level in
+  Ex (F.access_expr access ~addr)
 
-let e_subscript_var (expr, sub) =
+let e_subscript_var expr sub =
   let e = unEx expr in
   let i = unEx sub in
   Ex Ir.(indexed e i F.word_size)
 
-let e_field_var (expr, name, fields) = Ex Ir.(~$0)
-(* let l = unEx expr in
- * Ex (l <-> ~$ ) *)
+(* You can read it like this:
+   [record.field = expr] *)
+let e_field_var expr i =
+  let open Ir in
+  let r = Temp.mk () in
+  (*[e] is the field initial value *)
+  let e = unEx expr in
+  (* field offset in memory *)
+  let offset = i * F.word_size in
+  let stmt = (~*r <+> ~$offset) <<< e in
+  Ex (ESeq (stmt, ~*r))
 
-let e_record _ = Ex Ir.(~$0)
+(* - [record] is the record label
+   - [i]      is the field index
+   - [expr]   is the field initializer *)
+let e_record_field i expr ~record =
+  Ir.((~*record <+> ~$(i * F.word_size)) <<< unEx expr)
 
-(* This refers to an external function [init_array] which
+(* The simplest way to create a record consisting of [n]
+   fields is to call an external memory-allocation function
+   that returns a pointer to an [n]-word area into a new temporary [r] *)
+let e_record fields =
+  let open Ir in
+  (* Record label *)
+  let record = Temp.mk () in
+  (* Total number of words required for a record *)
+  let size = List.length fields * F.word_size in
+  (* [Ir.expr] for external call to allocate the required amount of memory *)
+  let call = F.external_call Runtime.initRecord [~$size] in
+  let init_record = ~*record <<< call in
+  let init_fields = List.mapi fields ~f:(e_record_field ~record) in
+  let stmt = seq @@ init_record :: init_fields in
+  Ex (ESeq (stmt, ~*record))
+
+(* This refers to an external function [Runtime.initArray] which
    is written in a language such as C or assembly language *)
 let e_array (size, init) =
   let args = [unEx size; unEx init] in
-  Ex Ir.(external_call "init_array" args)
+  Ex (F.external_call Runtime.initArray args)
 
-(* Produces an IR [expr] corresponding to the
-   conditional expression of the AST *)
 let e_cond (cond_expr, then_expr, else_expr) =
   let open Ir in
   let t = Temp.mk_label None in (* True-branch label *)
@@ -285,10 +311,10 @@ let e_cond (cond_expr, then_expr, else_expr) =
         [ cond(t, f) (* [stmt] that jumps to [t] or [f] label *)
         ; ~|t (* if cond is true *)
         ; ~*r <<< then_ex (* r := then_ex *)
-(*  --*); ~:x <|~ [x] (* jump to the [x] label *)
-(* |  *); ~|f (* else *)
-(* |  *); ~*r <<< unEx else_e (* r := unEx(else_e) *)
-(*  ->*); ~|x (* exit/join *)
+        (*  --*); ~:x <|~ [x] (* jump to the [x] label *)
+        (* |  *); ~|f (* else *)
+        (* |  *); ~*r <<< unEx else_e (* r := unEx(else_e) *)
+        (*  ->*); ~|x (* exit/join *)
         ] in
     Ex (ESeq(stmt, ~*r))
   (* "then" is a "no result" (with "else" branch) *)
@@ -298,13 +324,13 @@ let e_cond (cond_expr, then_expr, else_expr) =
         [ cond(t, f)
         ; ~|t
         ; then_nx
-(*  --*); ~:x <|~ [x]
-(* |  *); ~|f
-(* |      In this case we don't care what the
-   |      [else_e] actually is, so just [unNx] it
-   |      (we always discard the result of [else_e])
-   |  *); unNx else_e
-(*  ->*); ~|x
+        (*  --*); ~:x <|~ [x]
+        (* |  *); ~|f
+        (* |      In this case we don't care what the
+           |      [else_e] actually is, so just [unNx] it
+           |      (we always discard the result of [else_e])
+           |  *); unNx else_e
+        (*  ->*); ~|x
         ] in
     Nx stmt
   (* "then" is a "no result" (without "else" branch) *)
@@ -322,8 +348,8 @@ let e_cond (cond_expr, then_expr, else_expr) =
         This is an impossible case and the [Semant] module should fail in such cases *)
   | Cx _, Some (Nx _) ->
     failwith "Translation phase has detected that \
-then-branch is a conditional expression, but else-branch is a statement. \
-Looks like semantic analysis is broken."
+              then-branch is a conditional expression, but else-branch is a statement. \
+              Looks like semantic analysis is broken."
   (* 1. "then" is a conditional expr,
         "else" is a regular or conditional expr *)
   | Cx then_cx, Some (Ex _ | Cx _ as else_e) ->
@@ -342,14 +368,57 @@ Looks like semantic analysis is broken."
         ; unNx then_ex
         ; ~|f
         ] in
-    Ex (ESeq(stmt, ~$0))
+    Ex (ESeq (stmt, ~$0))
 
-let e_loop _ = Ex Ir.(~$0)
-let e_break _ = Ex Ir.(~$0)
+(* If a [Break] statement occurs within the [body_expr]
+   (and not nested within any interior [While] statements),
+   the translation is simply a [Jump] to the [done_l].
+
+   So that [tr_expr] can translate [Break] statements, it will
+   have a new formal parameter "break" that is the "done" label of
+   the nearest enclosing loop. The [Translate.e_break] function
+   takes this "done" label and uses it generate a [Jump] statement.
+
+   When [Semant.tr_expr] is recursively calling itself in
+   nonloop contexts, it can simply pass down the same
+   "break" parameter passed to it.
+
+   test:
+     if not(condition) goto done
+     body
+     goto test
+   done:
+
+   Note that we rewrite the AST of [For] to the
+   corresponding [While] in the [Semant] module,
+   so we don't have to worry about the difference between them *)
+let e_loop (cond_expr, body_expr, done_l) =
+  let open Ir in
+  let cond_l = Temp.mk_label None in
+  let body_l = Temp.mk_label None in
+  let cond_e = unEx cond_expr in
+  (* cond_e = 0 ? jump done_l : jump body_l *)
+  let cond_j = cjump cond_e Eq ~$0 done_l body_l in
+  let body_e = unNx body_expr in
+  let stmt = seq
+      [ ~|cond_l (* condition test label *)
+      ; cond_j (* if not(cond_expr) goto done_l *)
+      ; ~|body_l (* body label *)
+      ; body_e (* body expression *)
+      ; ~:cond_l <|~ [cond_l]
+      ; ~|done_l (* "done" label *)
+      ] in
+  Nx stmt
+
+(* Here [l] is the "done" label of the
+   nearest enclosing loop (see p.165 of the Tiger book
+   and the [loop] function definition above) *)
+let e_break l = Nx Ir.(~:l <|~ [l])
+
 let e_call _ = Ex Ir.(~$0)
 
 let e_assign (dst, src) =
-  Nx Ir.(unEx(dst) <<< unEx(src))
+  Nx Ir.(unEx dst <<< unEx src)
 
 let e_seq _ = Ex Ir.(~$0)
 let e_let _ = Ex Ir.(~$0)

@@ -9,20 +9,19 @@ let
     let
       var output := ""
 
-      function write(s: string) = (
-        output := concat(output, s); ()
-      )
+      function write(s: string) =
+        output := concat(output, s)
 
-      function show(n: int, t: tree) =
+      function show(n: int, t: tree) : unit =
         let
-          function indent(s: string) = (
+          function indent(s: string) : unit = (
             for i := 1 to n do
                write(" ");
                output := concat(output, s);
                write("\n")
           )
         in
-          if t = nil
+          if 1
           then indent(".")
           else (
             indent(t.key);

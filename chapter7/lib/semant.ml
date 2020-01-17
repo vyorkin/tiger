@@ -15,7 +15,7 @@ module ST = Symbol_table
 
 type expr_ty = {
   expr : Tr.expr;
-  ty : Type.t;
+  ty : T.t;
 }
 
 let ret expr ty =
@@ -29,14 +29,14 @@ let ret_string = ret e_dummy T.String
 let ret_nil = ret e_dummy T.Nil
 let ret_unit = ret e_dummy T.Unit
 
-let type_mismatch_error4 msg l t1 t2 =
+let type_mismatch_error4 msg l expected actual =
   let msg' = sprintf
       "type \"%s\" is expected, but found \"%s\""
-      (T.to_string t1) (T.to_string t2) in
+      (T.to_string expected) (T.to_string actual) in
   type_error l @@ msg ^ msg'
 
-let type_mismatch_error3 l t1 t2 =
-  type_mismatch_error4 "" l t1 t2
+let type_mismatch_error3 l expected actual =
+  type_mismatch_error4 "" l expected actual
 
 let missing_field_error t name =
   id_error name @@ sprintf
@@ -46,19 +46,21 @@ let missing_field_error t name =
 let rec trans_prog expr =
   Trace.SemanticAnalysis.trans_prog expr;
   let env = Env.mk () in
-  ignore @@ trans_expr (L.dummy expr) ~env
+  ignore @@ trans_expr L.(~?expr) ~env
 
 and trans_expr expr ~env =
   let open Syntax in
 
-  let rec assert_ty t expr ~env =
-    Trace.SemanticAnalysis.assert_ty t expr;
-    let { ty; _ } = tr_expr expr ~env in
-    if T.(~!ty <> ~!t)
-    then type_mismatch_error3 expr t ty
+  let rec assert_ty e a =
+    Trace.SemanticAnalysis.assert_ty e a;
+    if T.(~!e <> ~!a) then type_mismatch_error3 expr e a
 
-  and assert_int expr ~env = assert_ty T.Int expr ~env
-  and assert_unit expr ~env = assert_ty T.Unit expr ~env
+  and assert_ty_tr expected_t expr ~env =
+    let { ty = actual_t; _ } = tr_expr expr ~env in
+    assert_ty expected_t actual_t
+
+  and assert_int expr ~env = assert_ty_tr T.Int expr ~env
+  and assert_unit expr ~env = assert_ty_tr T.Unit expr ~env
 
   and tr_expr expr ~env =
     Trace.SemanticAnalysis.tr_expr expr;
@@ -103,7 +105,10 @@ and trans_expr expr ~env =
         type_error f @@ sprintf
           "function \"%s\" expects %d formal arguments, but %d was given"
           (f.L.value.S.name) (List.length formals) (List.length args) ;
-      List.iter2_exn formals args ~f:(assert_ty ~env);
+      (* Translate [args] first *)
+      let args_r = List.map args ~f:(tr_expr ~env) in
+      (* Assert that argument types match types of the function formal parameters *)
+      List.iter2_exn formals args_r ~f:(fun t ({ ty; _ }) -> assert_ty t ty);
       T.(ret e_dummy ~!result)
 
   (* In our language binary operators work only with
@@ -133,7 +138,7 @@ and trans_expr expr ~env =
     let { ty = var_ty; _ } = tr_var var ~env in
     let { ty = expr_ty; _ } = tr_expr expr ~env in
     if T.(var_ty = expr_ty)
-    then ret e_dummy var_ty
+    then ret_unit
     else type_error expr @@ sprintf
         "invalid assigment of type \"%s\" to a variable of type \"%s\""
         (T.to_string expr_ty) (T.to_string var_ty)
@@ -150,12 +155,14 @@ and trans_expr expr ~env =
   and tr_cond cond t f ~env =
     Trace.SemanticAnalysis.tr_cond cond t f;
     assert_int cond ~env;
+    Trace.SemanticAnalysis.tr_then ();
     let { ty = t_ty; _ } = tr_expr t ~env in
     match f with
     | None ->
       assert_unit t ~env;
       ret e_dummy t_ty
     | Some f ->
+      Trace.SemanticAnalysis.tr_else ();
       (* If there is a false-branch then we should
          check if types of both branches match *)
       let { ty = f_ty; _ } = tr_expr f ~env in
@@ -173,17 +180,13 @@ and trans_expr expr ~env =
 
   and tr_for var lo hi body escapes ~env =
     Trace.SemanticAnalysis.tr_for var lo hi body escapes;
+    (* Let's keep these assertions here to
+       fail early and get a better error message *)
     assert_int lo ~env;
     assert_int hi ~env;
-    (* Create a new location (in memory/frame or in a register) for
-       the iterator variable at the current nesting level *)
-    let access = Tr.alloc_local ~level:env.level ~escapes:!escapes in
-    Trace.Translation.alloc_local access;
-    let entry = Env.VarEntry { access; ty = T.Int } in
-    let venv' = ST.bind_var env.venv var entry in
-    let env = Env.enter_loop { env with venv = venv' } "for" in
-    assert_unit body ~env;
-    ret_unit
+    (* rewrite for to let + while *)
+    let let_expr = Syntax_rewriter.rewrite_for var lo hi body escapes in
+    tr_expr let_expr ~env
 
   (* In Tiger declarations appear only in a "let" expression,
      the let expression modifies both:

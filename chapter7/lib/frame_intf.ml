@@ -17,14 +17,20 @@ module type S = sig
   (** Stack pointer register (SP) *)
   val sp : Temp.t
 
-  (** Return value register *)
-  val rv : Temp.t
+  (** 1-st return register (RAX) *)
+  val rv1 : Temp.t
 
-  (** Turns [access] into the [Ir.expr]. The [addr] is the
-      address of the stack frame that [access] lives in *)
-  val expr : access -> addr:Ir.expr -> Ir.expr
+  (** 2-nd return register (RDX) *)
+  val rv2 : Temp.t
 
-  (** Word size in bytes **)
+  (** Turns [access] into the corresponding [Ir.expr] by generating a
+      [Mem(addr + Const k)] in case when [access] is stored in
+      a frame or [Temp r] in case when [access] is kept in a register.
+      The [addr] is the address of the stack frame
+      (its frame pointer) that [access] lives in *)
+  val access_expr : access -> addr:Ir.expr -> Ir.expr
+
+  (** Word size in bytes *)
   val word_size : int
 
   (** Makes a new frame for a function with the
@@ -45,6 +51,10 @@ module type S = sig
       Returns "in-memory" access with an offset from the frame pointer or
       "in-register" access in case if it can be allocated in a register *)
   val alloc_local : t -> escapes:bool -> access
+
+  (** Given a function name and a [Ir.expr list] of arguments,
+      generates an [Ir.expr] instructions corresponding to external call *)
+  val external_call : string -> Ir.expr list -> Ir.expr
 
   (** Helper module for pretty printing frame contents *)
   module Printer : sig

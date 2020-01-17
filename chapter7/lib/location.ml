@@ -8,8 +8,9 @@ let range_string loc =
   let line_end = pos_end.pos_lnum in
   let col_start = pos_start.pos_cnum - pos_start.pos_bol in
   let col_end = pos_end.pos_cnum - pos_end.pos_bol in
-  Printf.sprintf "(%d,%d)-(%d,%d)"
-    line_start col_start line_end col_end
+  match (line_start, col_start, line_end, col_end) with
+  | (0, -1, 0, -1) -> "(?, ?)-(?, ?)"
+  | (ls, cs, le, ce) -> Printf.sprintf "(%d,%d)-(%d,%d)" ls cs le ce
 
 type 'a t =
   { value: 'a;
@@ -18,7 +19,10 @@ type 'a t =
 
 let mk value loc = { value; loc }
 
-let dummy value = mk value (dummy_pos, dummy_pos)
+let dummy value =
+  mk value (dummy_pos, dummy_pos)
+
+let (~?) = dummy
 
 let line { loc = (pos_start, _); _ } =
   pos_start.pos_lnum

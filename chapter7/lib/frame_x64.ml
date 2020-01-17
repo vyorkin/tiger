@@ -56,10 +56,6 @@ let word_size = 64 / 8 (* = 8 bytes *)
 let fp = Temp.mk () (* Frame Pointer (RBP in x64) *)
 let sp = Temp.mk () (* Stack Pointer (RSP in x64) *)
 
-(* Return Value (RV) register (see "Returning of values"
-   on p.25 of the System-V ABI specification) *)
-let rv = Temp.mk ()
-
 (* x64 "parameter"-registers *)
 let rdi = Temp.mk ()
 let rsi = Temp.mk ()
@@ -68,6 +64,16 @@ let rcx = Temp.mk ()
 let	r8  = Temp.mk ()
 let r9  = Temp.mk ()
 let arg_regs = [rdi; rsi; rdx; r8; r9]
+
+(* Return Value (RV) register (see p.24 and the "Returning of values" on
+   p.25 of the System-V ABI specification) *)
+
+(* 1-st return register is RAX *)
+let rv1 = Temp.mk ()
+
+(* 2-nd return register is RDX.
+   For example, be used to store a big value *)
+let rv2 = Temp.mk ()
 
 (* Other x64 registers *)
 let rbx = Temp.mk ()
@@ -85,14 +91,17 @@ let caller_regs = [r10; r11]
 let callee_regs = [rbx; r12; r13; r14; r15]
 
 (* We need the [addr] here to access different frames.
-   The address of the frame is the same as the
-   current frame pointer only when accessing the variable
+   The address of the frame is the same as the current
+   frame pointer only when accessing the variable
    from its own level. When accessing the variable [access] from an
    inner-nested function, the frame address must be calculated
    using static links, and the result of this calculation will be
-   the [addr] argument to our [expr] function (Page 156) *)
-
-let expr access ~addr =
+   the [addr] argument to our [expr] function. So the [addr] argument is
+   the address of the stack frame (its frame pointer) that
+   [access] lives in. If [access] is a register then [addr] will be
+   discarded and the result will be simply [InReg t -> Temp t]
+   (p.156 of the Tiger-book) *)
+let access_expr access ~addr =
   let open Ir in
   match access with
   (* Memory accessor at offset [k] *)
@@ -177,6 +186,30 @@ let alloc_local frame ~escapes =
     InFrame offset
   | false ->
     InReg (Temp.mk ())
+
+(** The implementation depends on the releationship between Tiger's
+    procedure-call convention and that of the external function.
+    For now, to call an external function with [name] and arguments [args] we
+    simply generate a [Call] [expr], but it may have to be adjusted
+    for static links, or underscores in labels, and so on (see p.165) *)
+let external_call name args =
+  let open Ir in
+  let r = Temp.mk () in (* Result label *)
+  (* Make the function label match the C-compiler's conventions:
+     generated labels for function names are always underscored *)
+  let fn_label = Runtime.label name in
+  let name = Temp.mk_label (Some fn_label) in
+  let stmt = seq
+      [ Expr (Call (~:name, args)) (* Call the function and discard the result *)
+      (* Note that in x64 Linux ABI we have two
+         dedicated registers for returning values:
+         - [rv1] (RAX) - used by default
+         - [rv2] (RDX) - used in cases where the size of one register may not be enough *)
+      (* After calling the function we're expecting to have the result in the register [rv1] (RAX).
+         Lets grab it from there and put the result into [r] *)
+      ; ~*r <<< ~*rv1
+      ] in
+  ESeq (stmt, ~*r)
 
 module Printer = struct
   let print_access = function

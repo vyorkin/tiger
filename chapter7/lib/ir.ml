@@ -15,8 +15,8 @@ type expr =
       address [expr]. If [Mem] is used as the left child of
       a [Move] it means "store", but anywhere else it means "fetch" *)
   | Mem of expr
-  (** Procedure call: the application of a function [f] to argument list [l].
-      The subexpression [f] is evaluated before the
+  (** Procedure call: the application of a function [f] to
+      argument list [l]. The subexpression [f] is evaluated before the
       arguments which are evaluated from left to right *)
   | Call of expr * expr list
   (** The statement [stmt] is evaluated for side effects,
@@ -113,9 +113,9 @@ let relop_of_op = function
 (* Helper operators to simplify
    construction of complex IR expressions *)
 
-let (|+|) l r = BinOp(l, Plus, r)
-let (|-|) l r = BinOp(l, Minus, r)
-let (|*|) l r = BinOp(l, Mul, r)
+let (|+|) l r = BinOp (l, Plus, r)
+let (|-|) l r = BinOp (l, Minus, r)
+let (|*|) l r = BinOp (l, Mul, r)
 
 (* [expr] operators *)
 
@@ -132,8 +132,8 @@ let (~*) t = Temp t
 
 let (~|) l = Label l
 
-let (<<<) e1 e2 = Move(e1, e2)
-let (<|~) e labels = Jump(e, labels)
+let (<<<) e1 e2 = Move (e1, e2)
+let (<|~) e labels = Jump (e, labels)
 
 (* Other helper operators for convenience
    (see the Page 155 of the Tiger book for the equivalent definition) *)
@@ -151,17 +151,13 @@ let (<->) l r = ~@(l |-| r)
    (all elements are one word long) *)
 let indexed e i w = ~@(~@e |+| (i |*| ~$w))
 
+(** Helper function to simplify
+    construction of conditional expressions **)
+let cjump left op right t f =
+  CJump { op = relop_of_op op; left; right; t; f }
+
 (** Helper function to construct a sequence of statements **)
 let rec seq = function
   | s :: [] -> s
-  | s :: ss -> Seq(s, seq ss)
+  | s :: ss -> Seq (s, seq ss)
   | [] -> Expr ~$0
-
-(** The implementation depends on the releationship between Tiger's
-    procedure-call convention and that of the external function.
-    For now, to call an external function [s] with arguments [args] we
-    simply generate a [Call] [expr], but it may have to be adjusted
-    for static links, or underscores in labels, and so on (see p.165) *)
-let external_call s args =
-  let name = Temp.mk_label (Some s) in
-  Call(~:name, args)

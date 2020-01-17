@@ -27,6 +27,8 @@ module SemanticAnalysis : sig
   val tr_seq : (expr L.t) list -> unit
   val tr_assign : var L.t -> expr L.t -> unit
   val tr_cond : expr L.t -> expr L.t -> (expr L.t) option -> unit
+  val tr_then : unit -> unit
+  val tr_else : unit -> unit
   val tr_while : expr L.t -> expr L.t -> unit
   val tr_for : S.t L.t -> expr L.t -> expr L.t -> expr L.t -> bool ref -> unit
   val tr_break : unit L.t -> S.t option -> unit
@@ -41,11 +43,17 @@ module SemanticAnalysis : sig
 
   val ret : Translate.expr -> T.t -> unit
 
-  val assert_ty : T.t -> expr L.t -> unit
+  val assert_ty : T.t -> T.t -> unit
   val assert_comparison : expr L.t -> expr L.t -> expr L.t -> unit
   val assert_op : expr L.t -> expr L.t -> unit
   val assert_fun_body : fun_dec L.t -> T.t -> unit
   val assert_init : var_dec L.t -> T.t -> unit
+end
+
+module SyntaxRewriting : sig
+  open Syntax
+
+  val rewrite_for : S.t L.t -> expr L.t -> expr L.t -> expr L.t -> bool ref -> unit
 end
 
 module StackFrame : sig

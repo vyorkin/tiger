@@ -64,6 +64,10 @@ module SemanticAnalysis = struct
     trace_tr "tr_assign" (print_assign var expr)
   let tr_cond cond t f =
     trace_tr "tr_cond" (print_cond cond t f)
+  let tr_then () =
+    trace (fun m -> m "tr_then")
+  let tr_else () =
+    trace (fun m -> m "tr_else")
   let tr_while cond body =
     trace_tr "tr_while" (print_while cond body)
   let tr_for var lo hi body escapes =
@@ -99,8 +103,9 @@ module SemanticAnalysis = struct
       (to_string (~! ty))
       (Tr.Printer.print_expr expr)
 
-  let assert_ty ty expr =
-    trace @@ fun m -> m "!!! (ty) %s : %s" (print_expr expr.L.value) (T.to_string ty)
+  let assert_ty t1 t2 =
+    trace @@ fun m -> m "!!! (ty) %s = %s" (T.to_string t1) (T.to_string t2)
+
   let assert_comparison expr l r =
     trace @@ fun m -> m "!!! (comparsion) %s : %s (%s)"
       (print_expr l.L.value)
@@ -119,6 +124,17 @@ module SemanticAnalysis = struct
     trace @@ fun m -> m "!!! (init) %s : %s"
       (print_var_dec var)
       (T.to_string init_ty)
+end
+
+module SyntaxRewriting = struct
+  open Syntax
+  open Syntax_printer
+
+  let src = Logs.Src.create "tig.syntax-rewriting" ~doc:"Syntax rewriting"
+  let trace f = Logs.debug ~src (fun m -> f (m ~header:"rewrite"))
+
+  let rewrite_for var lo hi body escapes =
+    trace @@ fun m -> m " %s" (print_for var lo hi body escapes)
 end
 
 module StackFrame = struct
