@@ -2,32 +2,38 @@ open Core
 
 open Ch7
 
+let tiger lexbuf =
+  let expr = Parser.main Lexer.read lexbuf in
+  Escape.traverse_prog expr;
+  expr
+  |> Semant.trans_prog
+  |> List.map ~f:Fragment.show
+  |> String.concat ~sep:"\n"
+  |> printf "\nfragments:\n%s\n"
+
 let run_tiger fn ch =
   let open Printf in
   let lexbuf = Lexbuf.mk fn ch in
   try
-    let expr = Parser.main Lexer.read lexbuf in
-    Escape.traverse_prog expr;
-    ignore @@ Semant.trans_prog expr;
-    (* printf "%s\n" (Syntax.show_expr expr) *)
+    tiger lexbuf
   with
   | Lexer.LexingError msg ->
     eprintf "%s: lexing error%s\n" (Lexbuf.pos lexbuf) msg
   | Parser.Error ->
     eprintf "%s: syntax error\n" (Lexbuf.pos lexbuf)
   | Err.Error (err, loc, msg) ->
-    eprintf "%s\n" (Err.to_string err loc msg)
+    eprintf "\n%s\n" (Err.to_string err loc msg)
 
 let run_file fn () =
   (* Fmt.set_style_renderer Format.std_formatter `Ansi_tty; *)
   Fmt_tty.setup_std_outputs ();
   Logs.set_level @@ Some Logs.Debug;
   let trace_sources = Trace_source.[
-    SymbolTable [Stdout];
-    SemanticAnalysis [Stdout];
-    StackFrame [Stdout];
-    Escaping [Stdout]
-  ] in
+      SymbolTable [Stdout];
+      SemanticAnalysis [Stdout];
+      StackFrame [Stdout];
+      Escaping [Stdout]
+    ] in
   let cfg = Config.make ~trace_sources () in
   Logs.set_reporter @@ Trace.mk_reporter cfg;
   (* Logs.set_reporter @@ Logs_fmt.reporter (); *)

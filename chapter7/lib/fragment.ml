@@ -9,6 +9,7 @@ type t =
   | Proc of proc
   (** Represents a pseude-instruction sequence for a string literal *)
   | String of Temp.label * string
+  [@@deriving show]
 
 and proc = {
   (** The frame descriptor containing machine-specific
