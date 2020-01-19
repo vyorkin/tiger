@@ -72,9 +72,9 @@ module SemanticAnalysis = struct
     trace_tr "tr_while" (print_while cond body)
   let tr_for var lo hi body escapes =
     trace_tr "tr_for" (print_for var lo hi body escapes)
-  let tr_break br loop =
-    let mark = match loop with
-      | Some _ -> "inside"
+  let tr_break br done_l =
+    let mark = match done_l with
+      | Some l -> "inside: " ^ Temp.print_label l
       | None -> "outside"
     in
     trace @@ fun m -> m ">>> tr_break (%s): %s"

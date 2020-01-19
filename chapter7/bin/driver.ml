@@ -9,7 +9,7 @@ let tiger lexbuf =
   |> Semant.trans_prog
   |> List.map ~f:Fragment.show
   |> String.concat ~sep:"\n"
-  |> printf "\nfragments:\n%s\n"
+  |> printf "\nFragments:\n\n%s\n"
 
 let run_tiger fn ch =
   let open Printf in

@@ -22,12 +22,10 @@ let ret expr ty =
   Trace.SemanticAnalysis.ret expr ty;
   { expr; ty }
 
-let e_dummy = Tr.e_dummy ()
-
-let ret_int = ret e_dummy T.Int
-let ret_string = ret e_dummy T.String
-let ret_nil = ret e_dummy T.Nil
-let ret_unit = ret e_dummy T.Unit
+let ret_int x = ret (Tr.e_int x) T.Int
+let ret_string s = ret (Tr.e_string s) T.String
+let ret_nil = ret Tr.e_nil T.Nil
+let ret_unit = ret Tr.e_unit T.Unit
 
 let type_mismatch_error4 msg l expected actual =
   let msg' = sprintf
@@ -44,10 +42,16 @@ let missing_field_error t name =
     (T.to_string t) (name.L.value.S.name)
 
 let rec trans_prog expr =
+  let module Frag = Fragment.Store in
   Trace.SemanticAnalysis.trans_prog expr;
+  (* Prepare a new environment *)
   let env = Env.mk () in
-  ignore @@ trans_expr L.(~?expr) ~env;
-  []
+  (* Reset the fragment storage *)
+  Frag.reset ();
+  let r = trans_expr L.(~?expr) ~env in
+  Tr.proc_entry_exit (env.level, r.expr);
+  (* Return accumulated fragments *)
+  Frag.result ();
 
 and trans_expr expr ~env =
   let open Syntax in
@@ -56,12 +60,8 @@ and trans_expr expr ~env =
     Trace.SemanticAnalysis.assert_ty e a;
     if T.(~!e <> ~!a) then type_mismatch_error3 expr e a
 
-  and assert_ty_tr expected_t expr ~env =
-    let { ty = actual_t; _ } = tr_expr expr ~env in
-    assert_ty expected_t actual_t
-
-  and assert_int expr ~env = assert_ty_tr T.Int expr ~env
-  and assert_unit expr ~env = assert_ty_tr T.Unit expr ~env
+  and assert_int ty = assert_ty T.Int ty
+  and assert_unit ty = assert_ty T.Unit ty
 
   and tr_expr expr ~env =
     Trace.SemanticAnalysis.tr_expr expr;
@@ -70,10 +70,10 @@ and trans_expr expr ~env =
     match expr.L.value with
     | Var var -> tr_var var ~env
     | Nil _ -> ret_nil
-    | Int _ -> ret_int
-    | String _ -> ret_string
+    | Int x -> ret_int x.L.value
+    | String s -> ret_string s.L.value
     | Call (f, args) -> tr_call f args ~env
-    | Op (l, op, r) -> tr_op expr l op.L.value r ~env
+    | Op (l, op, r) -> tr_op l op.L.value r ~env
     | Record (name, fields) -> tr_record name fields ~env
     | Seq [] -> ret_unit (* in our grammar unit is empty seq *)
     | Seq exprs -> tr_seq exprs ~env
@@ -86,10 +86,10 @@ and trans_expr expr ~env =
     | Array (ty, size, init) -> tr_array ty size init ~env
 
   and tr_break br ~env =
-    Trace.SemanticAnalysis.tr_break br env.loop;
-    match env.loop with
-    | Some _ ->
-      ret_unit
+    Trace.SemanticAnalysis.tr_break br env.break;
+    match env.break with
+    | Some l ->
+      ret (Tr.e_break l) T.Unit
     | None ->
       syntax_error br "unexpected break statement"
 
@@ -118,36 +118,36 @@ and trans_expr expr ~env =
 
   (* In our language binary operators work only with
      integer operands, except for (=) and (<>) *)
-  and tr_op expr l op r ~env =
+  and tr_op l op r ~env =
     Trace.SemanticAnalysis.tr_op l op r;
+    let lr = tr_expr l ~env in
+    let rr = tr_expr r ~env in
     (match op with
-     | Syntax.Eq | Syntax.Neq ->
-       assert_comparison expr l r ~env
+     | Eq | Neq ->
+       assert_ty lr.ty rr.ty
      | _ ->
-       assert_op l r ~env
-    );
+       assert_int lr.ty;
+       assert_int rr.ty);
+    let args = (lr.expr, op, rr.expr) in
     (* Type of the [Syntax.Op l op r] is always [T.Int] *)
-    ret_int
-
-  and assert_comparison expr l r ~env =
-    let { ty = ty_l; _ } = tr_expr l ~env in
-    let { ty = ty_r; _ } = tr_expr r ~env in
-    if T.(~!ty_l <> ~!ty_r)
-    then type_mismatch_error3 expr ty_l ty_r
-
-  and assert_op l r ~env =
-    assert_int l ~env;
-    assert_int r ~env
+    let ty = T.Int in
+    match op with
+    (* Arithmetics *)
+    | Plus | Minus | Times | Divide ->
+      ret (Tr.e_binop args) ty
+    (* Comparison *)
+    | Ge | Gt | Le | Lt | Eq | Neq ->
+      ret (Tr.e_relop args) ty
 
   and tr_assign var expr ~env =
     Trace.SemanticAnalysis.tr_assign var expr;
-    let { ty = var_ty; _ } = tr_var var ~env in
-    let { ty = expr_ty; _ } = tr_expr expr ~env in
-    if T.(var_ty = expr_ty)
-    then ret_unit
+    let vr = tr_var var ~env in
+    let er = tr_expr expr ~env in
+    if T.(vr.ty = er.ty)
+    then ret (Tr.e_assign (vr.expr, er.expr)) T.Unit
     else type_error expr @@ sprintf
         "invalid assigment of type \"%s\" to a variable of type \"%s\""
-        (T.to_string expr_ty) (T.to_string var_ty)
+        (T.to_string er.ty) (T.to_string vr.ty)
 
   (* Type of a sequence is a type of its last expression,
      but we need to check all previous expressions too *)
@@ -160,36 +160,42 @@ and trans_expr expr ~env =
 
   and tr_cond cond t f ~env =
     Trace.SemanticAnalysis.tr_cond cond t f;
-    assert_int cond ~env;
+    let cond_r = tr_expr cond ~env in
+    assert_int cond_r.ty;
     Trace.SemanticAnalysis.tr_then ();
-    let { ty = t_ty; _ } = tr_expr t ~env in
+    let tr = tr_expr t ~env in
     match f with
     | None ->
-      assert_unit t ~env;
-      ret e_dummy t_ty
+      assert_unit tr.ty;
+      ret (Tr.e_cond (cond_r.expr, tr.expr, None)) tr.ty
     | Some f ->
       Trace.SemanticAnalysis.tr_else ();
       (* If there is a false-branch then we should
          check if types of both branches match *)
-      let { ty = f_ty; _ } = tr_expr f ~env in
-      if T.(t_ty = f_ty)
-      then ret e_dummy t_ty
+      let fr = tr_expr f ~env in
+      if T.(tr.ty = fr.ty)
+      then ret (Tr.e_cond (cond_r.expr, tr.expr, Some fr.expr)) tr.ty
       else type_error expr @@ sprintf
           "different types of branch expressions: \"%s\" and \"%s\""
-          (T.to_string t_ty) (T.to_string f_ty)
+          (T.to_string tr.ty) (T.to_string fr.ty)
 
   and tr_while cond body ~env =
     Trace.SemanticAnalysis.tr_while cond body;
-    assert_int cond ~env;
-    assert_unit body ~env:(Env.enter_loop env "while");
-    ret_unit
+    let cond_r = tr_expr cond ~env in
+    let (done_l, env') = Env.enter_loop env in
+    let body_r = tr_expr body ~env:env' in
+    assert_int cond_r.ty;
+    assert_unit body_r.ty;
+    ret (Tr.e_loop (cond_r.expr, body_r.expr, done_l)) T.Unit
 
   and tr_for var lo hi body escapes ~env =
     Trace.SemanticAnalysis.tr_for var lo hi body escapes;
     (* Let's keep these assertions here to
        fail early and get a better error message *)
-    assert_int lo ~env;
-    assert_int hi ~env;
+    let lo_r = tr_expr lo ~env in
+    let hi_r = tr_expr hi ~env in
+    assert_int lo_r.ty;
+    assert_int hi_r.ty;
     (* rewrite for to let + while *)
     let let_expr = Syntax_rewriter.rewrite_for var lo hi body escapes in
     tr_expr let_expr ~env
@@ -211,9 +217,10 @@ and trans_expr expr ~env =
     (* Find a type of the field with [name] *)
     match List.Assoc.find tfields ~equal:S.equal name.L.value with
     | Some ty_field ->
-      let { ty = ty_expr; _ } = tr_expr expr ~env in
-      if T.(ty_field @<> ty_expr)
-      then type_mismatch_error3 expr ty_field ty_expr
+      let r = tr_expr expr ~env in
+      if T.(ty_field @<> r.ty)
+      then type_mismatch_error3 expr ty_field r.ty
+      else r.expr
     | None ->
       missing_field_error rec_typ name
 
@@ -226,8 +233,8 @@ and trans_expr expr ~env =
     | T.Record (tfields, _) ->
       (* We want to check each field of the variable
          against the corresponding record type definition *)
-      List.iter ~f:(tr_record_field rec_typ tfields ~env) vfields;
-      ret e_dummy rec_typ
+      let fields = List.map vfields ~f:(tr_record_field rec_typ tfields ~env) in
+      ret (Tr.e_record fields) rec_typ
     | _ ->
       type_error ty_name @@ sprintf
         "\"%s\" is not a record" (T.to_string rec_typ)
@@ -235,18 +242,19 @@ and trans_expr expr ~env =
   and tr_array typ size init ~env =
     let open T in
     Trace.SemanticAnalysis.tr_array typ size init;
-    assert_int size ~env;
-    let { ty = init_tn; _ } = tr_expr init ~env in
+    let size_r = tr_expr size ~env in
+    assert_int size_r.ty;
+    let init_r = tr_expr init ~env in
     (* Find the type of this particular array *)
     let arr_ty = ST.look_typ env.tenv typ in
     match ~!arr_ty with
     | T.Array (tn, _) ->
       let t = ~!tn in
-      let init_t = ~!init_tn in
-      if t = init_t
-      then ret e_dummy arr_ty
+      let init_ty = ~!(init_r.ty) in
+      if t = init_ty
+      then ret (Tr.e_array (size_r.expr, init_r.expr)) arr_ty
       else type_mismatch_error4
-          "invalid type of array initial value, " init t init_t
+          "invalid type of array initial value, " init t init_ty
     | _ ->
       type_error typ @@ sprintf
         "\"%s\" is not array" (T.to_string arr_ty)
@@ -264,8 +272,8 @@ and trans_expr expr ~env =
   and tr_simple_var var ~env =
     Trace.SemanticAnalysis.tr_simple_var var;
     match ST.look_var env.venv var with
-    | VarEntry { ty; _ }  ->
-      T.(ret e_dummy ~!ty)
+    | VarEntry ventry  ->
+      ret (Tr.e_simple_var (ventry.access, env.level)) (T.actual ventry.ty)
     | FunEntry { formals; result; _ } ->
       let signature =
         formals
@@ -278,31 +286,32 @@ and trans_expr expr ~env =
   and tr_field_var var field ~env =
     Trace.SemanticAnalysis.tr_field_var var field;
     (* Find a type of the record variable *)
-    let rec_ty = tr_var var ~env in
+    let rec_r = tr_var var ~env in
     (* Lets see if its actually a record *)
-    match rec_ty.ty with
+    match rec_r.ty with
     | Record (fields, _) ->
       (* Record is just a list of pairs [S.t * Type.t],
          lets try to find a type for the given [field],
          it is the type of the [FieldVar] expression  *)
-      (match List.Assoc.find fields ~equal:S.equal field.L.value with
-       | Some tt -> T.(ret e_dummy ~!tt)
-       | None -> missing_field_error rec_ty.ty field)
+      (match List.findi fields ~f:(fun _ (name, _) -> S.(name = field.L.value)) with
+       | Some (i, (_, tt)) -> T.(ret (Tr.e_field_var rec_r.expr i) ~!tt)
+       | None -> missing_field_error rec_r.ty field)
     | _ ->
       type_error var @@ sprintf
         "expected record, but \"%s\" found"
-        (T.to_string rec_ty.ty)
+        (T.to_string rec_r.ty)
 
   and tr_subscript_var var sub ~env =
     Trace.SemanticAnalysis.tr_subscript_var var sub;
-    let arr_ty = tr_var var ~env in
-    match arr_ty.ty with
+    let arr_r = tr_var var ~env in
+    match arr_r.ty with
     | Array (tn, _) ->
-      assert_int sub ~env;
-      T.(ret e_dummy ~!tn)
+      let sub_r = tr_expr sub ~env in
+      assert_int sub_r.ty;
+      T.(ret (Tr.e_subscript_var arr_r.expr sub_r.expr) ~!tn)
     | _ ->
       type_error var @@ sprintf
-        "\"%s\" is not an array" (T.to_string arr_ty.ty)
+        "\"%s\" is not an array" (T.to_string arr_r.ty)
   in
   tr_expr expr ~env
 
@@ -355,6 +364,7 @@ and trans_type_decs tys ~env =
 and trans_fun_decs fs ~env =
   let open Syntax in
   let open Env in
+
   (* Translates a function declaration and updates the [venv] *)
   let tr_fun_head (sigs, venv) fun_dec =
     Trace.SemanticAnalysis.trans_fun_head fun_dec;
@@ -377,8 +387,10 @@ and trans_fun_decs fs ~env =
     let entry = FunEntry { level; label; formals; result } in
     let venv' = ST.bind_fun venv fun_name entry in
     (level, args, result) :: sigs, venv' in
+
   (* First, we add all the function entries to the [venv] *)
   let (sigs, venv') = List.fold_left fs ~f:tr_fun_head ~init:([], env.venv) in
+
   let assert_fun_body (level', params, result) fun_dec =
     Trace.SemanticAnalysis.assert_fun_body fun_dec result;
     (* Here, we build another [venv''] to be used for body processing
@@ -392,11 +404,12 @@ and trans_fun_decs fs ~env =
     let venv'' = List.fold_left params ~init:venv' ~f:add_param in
     let env' = { env with level = level'; venv = venv'' } in
     let { body; _ } = fun_dec.L.value in
-    let body_ty : expr_ty = trans_expr body ~env:env' in
+    let body_ty = trans_expr body ~env:env' in
     if T.(body_ty.ty <> result)
     then type_mismatch_error4
         "type of the body expression doesn't match the declared result type, "
         body result body_ty.ty;
+    Tr.proc_entry_exit (level', body_ty.expr)
   in
   Trace.SemanticAnalysis.trans_fun_decs fs;
   (* Now, lets check the bodies *)

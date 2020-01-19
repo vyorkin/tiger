@@ -31,7 +31,7 @@ module SemanticAnalysis : sig
   val tr_else : unit -> unit
   val tr_while : expr L.t -> expr L.t -> unit
   val tr_for : S.t L.t -> expr L.t -> expr L.t -> expr L.t -> bool ref -> unit
-  val tr_break : unit L.t -> S.t option -> unit
+  val tr_break : unit L.t -> Temp.label option -> unit
   val tr_let : dec list -> expr L.t -> unit
   val tr_array : S.t L.t -> expr L.t -> expr L.t -> unit
 

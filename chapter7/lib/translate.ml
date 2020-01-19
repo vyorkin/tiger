@@ -1,6 +1,7 @@
 open Core_kernel
 
 module F = Frame
+module Frag = Fragment.Store
 
 (* We separate [Semant] from [Translate] module to
    avoid a huge, unweildy module that does both:
@@ -209,13 +210,10 @@ let e_int n = Ex Ir.(~$n)
    For each string literal [s], the [Translate] module makes a
    new [label] [l], and returns the [Ir.Name l].
    It also puts the assembly-language fragment [Frame.String (l, s)] onto
-   a global list of such fragments to be handed to the code emitter
-   (see p.163, p.169 and p.262 of the Tiger-book) *)
+   a global list of such fragments (see the [Fragment.Store]) to be
+   handed to the code emitter (see p.163, p.169 and p.262 of the Tiger-book) *)
 let e_string s =
-  let l = Temp.mk_label None in
-  (* TODO: fragments := F.String (l, s) :: !fragments; *)
-  (* TODO: Lookup the given [s] in existing fragments before adding a new one *)
-  Ex Ir.(~:l)
+  Ex (Frag.push_string s)
 
 (* Integer arithmetic is easy to translate (see p.161).
    It's easy to convince yourself that each arithmetic
@@ -253,7 +251,7 @@ let e_field_var expr i =
   let r = Temp.mk () in
   (*[e] is the field initial value *)
   let e = unEx expr in
-  (* field offset in memory *)
+  (* Field offset in memory *)
   let offset = i * F.word_size in
   let stmt = (~*r <+> ~$offset) <<< e in
   Ex (ESeq (stmt, ~*r))
@@ -373,14 +371,14 @@ let e_cond (cond_expr, then_expr, else_expr) =
    (and not nested within any interior [While] statements),
    the translation is simply a [Jump] to the [done_l].
 
-   So that [tr_expr] can translate [Break] statements, it will
-   have a new formal parameter "break" that is the "done" label of
+   So that [tr_expr] can translate [Break] statements, the [Env.t] will
+   have a new field "break" that is the "done" label of
    the nearest enclosing loop. The [Translate.e_break] function
    takes this "done" label and uses it to generate a [Jump] statement.
 
    When [Semant.tr_expr] is recursively calling itself in
    nonloop contexts, it can simply pass down the same
-   "break" parameter passed to it.
+   env (with a "break" field) passed to it.
 
    test:
      if not(condition) goto done
@@ -441,8 +439,7 @@ let rec e_seq = function
      evaluated for side-effects. Result is the last [expr] *)
   | e :: es -> Ex Ir.(ESeq (unNx e, unEx (e_seq es)))
 
-(* Translate assignment expressions,
-   then translate the [body] *)
+(* Translate assignment expressions, then translate the [body] *)
 let e_let (dec_exprs, body_expr) =
   let open Ir in
   let dec_es = seq @@ List.map dec_exprs ~f:unNx in
@@ -451,11 +448,16 @@ let e_let (dec_exprs, body_expr) =
 
 let e_dummy () = Ex (Ir.Const 1)
 
-let proc_entry_exit (level, body) =
-  ()
-
-let result () =
-  []
+let proc_entry_exit ({ frame; _ }, body) =
+  let open Ir in
+  (* Generate an [Ir.Move] instruction to put the result of
+     evaluating the [body] in the [Frame.rv1] (return register) *)
+  let stmt = ~*F.rv1 <<< unEx body in
+  (* Augment the [body] with a "view shift" instructions
+     (see p.261 of the Tiger-book) *)
+  let body = F.proc_entry_exit1 (frame, stmt) in
+  (* Make a new fragment and push it into our mutable storage *)
+  Frag.push_proc { frame; body }
 
 (** Helper module for pretty printing translated expressions *)
 module Printer = struct

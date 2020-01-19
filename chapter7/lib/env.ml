@@ -29,7 +29,7 @@ type t = {
   venv : venv;
   level : Tr.level;
   path : (Syntax.expr L.t) list;
-  loop : S.t option;
+  break : Temp.label option;
 }
 
 let base_venv = ST.empty
@@ -47,11 +47,12 @@ let mk () = {
   venv = base_venv;
   level = Tr.outermost;
   path = [];
-  loop = None;
+  break = None;
 }
 
 let enter_expr env expr =
   { env with path = expr :: env.path }
 
-let enter_loop env name =
-  { env with loop = Some (S.mk_unique name) }
+let enter_loop env =
+  let l = Temp.mk_label None in
+  l, { env with break = Some l }
