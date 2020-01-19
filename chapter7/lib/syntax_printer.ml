@@ -188,7 +188,7 @@ and print_cond cond t f =
        ~f:(fun e -> sprintf " else %s" @@ print_expr e.L.value))
 
 and print_while cond body =
-  sprintf "\nwhile %s\n  %s"
+  sprintf "while %s\n  %s"
     (print_expr cond.L.value)
     (print_expr body.L.value)
 

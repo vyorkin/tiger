@@ -25,7 +25,8 @@ open Core_kernel
 (* Location of a formal parameter (function argument) or
    a local variable that may be placed in a frame or in a register *)
 type access =
-  (* Memory location at the specific offset from the frame pointer *)
+  (* Memory location at the specific
+     offset from the frame pointer *)
   | InFrame of int
   (* Register location *)
   | InReg of Temp.t
@@ -53,36 +54,36 @@ let (<>) x y = not (equal x y)
 let word_size = 64 / 8 (* = 8 bytes *)
 
 (* Special registers *)
-let fp = Temp.mk () (* Frame Pointer (RBP in x64) *)
-let sp = Temp.mk () (* Stack Pointer (RSP in x64) *)
+let fp = Temp.mk_named "FP (RBP)" (* Frame Pointer (RBP in x64) *)
+let sp = Temp.mk_named "SP (RSP)" (* Stack Pointer (RSP in x64) *)
 
 (* x64 "parameter"-registers *)
-let rdi = Temp.mk ()
-let rsi = Temp.mk ()
-let rdx = Temp.mk ()
-let rcx = Temp.mk ()
-let	r8  = Temp.mk ()
-let r9  = Temp.mk ()
+let rdi = Temp.mk_named "RDI"
+let rsi = Temp.mk_named "RSI"
+let rdx = Temp.mk_named "RDX"
+let rcx = Temp.mk_named "RCX"
+let	r8  = Temp.mk_named "R8"
+let r9  = Temp.mk_named "R9"
 let arg_regs = [rdi; rsi; rdx; r8; r9]
 
 (* Return Value (RV) register (see p.24 and the "Returning of values" on
    p.25 of the System-V ABI specification) *)
 
 (* 1-st return register is RAX *)
-let rv1 = Temp.mk ()
+let rv1 = Temp.mk_named "RV1 (RAX)"
 
 (* 2-nd return register is RDX.
    For example, be used to store a big value *)
-let rv2 = Temp.mk ()
+let rv2 = Temp.mk_named "RV2 (RDX)"
 
 (* Other x64 registers *)
-let rbx = Temp.mk ()
-let r10 = Temp.mk ()
-let r11 = Temp.mk ()
-let r12 = Temp.mk ()
-let r13 = Temp.mk ()
-let r14 = Temp.mk ()
-let r15 = Temp.mk ()
+let rbx = Temp.mk_named "RBX"
+let r10 = Temp.mk_named "R10"
+let r11 = Temp.mk_named "R11"
+let r12 = Temp.mk_named "R12"
+let r13 = Temp.mk_named "R13"
+let r14 = Temp.mk_named "R14"
+let r15 = Temp.mk_named "R15"
 
 (* Registers that are preserved by the caller *)
 let caller_regs = [r10; r11]
@@ -204,13 +205,19 @@ let external_call name args =
       [ Expr (Call (~:name, args)) (* Call the function and discard the result *)
       (* Note that in x64 Linux ABI we have two
          dedicated registers for returning values:
-         - [rv1] (RAX) - used by default
-         - [rv2] (RDX) - used in cases where the size of one register may not be enough *)
+         - [RV1] (RAX) - used by default
+         - [RV2] (RDX) - used in cases where the size of one register may not be enough *)
       (* After calling the function we're expecting to have the result in the register [rv1] (RAX).
          Lets grab it from there and put the result into [r] *)
       ; ~*r <<< ~*rv1
       ] in
   ESeq (stmt, ~*r)
+
+(* Concept of a "view shift" is described on p.136 of the Tiger-book.
+   The implementation of this function is discussed on p.261 *)
+let proc_entry_exit1 (_, body) =
+  (* We don't know how to properly implement this function yet *)
+  body
 
 module Printer = struct
   let print_access = function
@@ -219,13 +226,13 @@ module Printer = struct
 
   let print_frame frame =
     let formals = List.map frame.formals ~f:print_access in
-    let instrs = List.map frame.instrs ~f:Instruction.print in
+    (* let instrs = List.map frame.instrs ~f:Instruction.print in *)
     let lines =
       [ "     id: " ^ Int.to_string frame.id
       ; "  label: " ^ Temp.print_label frame.label
       ; "formals: " ^ String.concat formals ~sep:" "
       ; " locals: " ^ Int.to_string frame.locals
-      ; " instrs: " ^ String.concat instrs ~sep:" "
+      (* ; " instrs: " ^ String.concat instrs ~sep:" " *)
       ]
     in String.concat lines ~sep:"\n"
 end

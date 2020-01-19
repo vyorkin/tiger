@@ -1,3 +1,61 @@
+(** Each Tiger function is translated into a segment of assembly language
+    with a prologue, a body and an epilogue. The body of a Tiger
+    function is an expression, and the body of the translation is
+    simply the translation of that expression.
+
+    The prologue, which precedes the body in the assembly-language
+    version of the function contains:
+
+    1. Pseudo-instructions, as needed in the particular assembly language,
+      to announce the beginning of a function;
+    2. A label definition for the function name;
+    3. An instruction to adjust the stack pointer (to allocate a new frame);
+    4. Instructions to save "escaping" arguments (including the static link) into
+      the frame, and to move non-escaping arguments into fresh temporary registers;
+    5. Store instructions to save any callee-save registers (including the
+      return address register) used within the function
+
+    Then comes
+
+    6. The function body;
+
+    The epilogue comes after the body and contains
+
+    7. An instruction to move the return value (result of the function) to
+      the register reserved for that purpose (e.g. RV1 in case of x64);
+    8. Load instructions to restore the callee-save registers;
+    9. An instruction to reset the stack pointer (to deallocate the frame);
+    10. A return instruction ([Ir.Jump] to the return address);
+    11. Pseudo-instructions, as needed, to announce the end of a function.
+
+    1, 3, 9, 11:
+    ------------
+    Depend of exact knowledge of the frame size, which
+    will not be known until after the register allocator determines how many
+    local variables need to be kept in the frame because they don't fit in registers.
+    So these instructions should be generated very late in a [Frame.procEntryExit3]
+    function (see p.261 of the Tiger-book).
+
+    2, 10:
+    ------
+    Are also handled at that time.
+
+    7:
+    --
+    Generate a move instruction [Move(RV, body)] that
+    puts the result of evaluating the body in the return value (RV) location
+    specified by the machine-specific frame structure
+
+    4, 5, 8:
+    --------
+    Are part of the "view shift" described on p.136 of the Tiger-book.
+    They should be done by a function in the [Frame] module:
+
+    [val procEntryExit1 : Frame.t * Ir.stmt -> Ir.stmt]
+
+ **)
+
+
 (** Translated to IR expression *)
 type expr [@@deriving show]
 
@@ -120,8 +178,8 @@ val e_call
   -> level * level
   -> bool
   -> expr
-(** Translates an assignment expression to [Ir.expr] that
-    is equivalent to [Move(dst, src)] *)
+(** Translates an assignment expression to [Ir.expr]
+    that is equivalent to [Move(dst, src)] *)
 val e_assign : expr * expr -> expr
 (** Translates a sequences of expressions *)
 val e_seq : expr list -> expr
@@ -131,3 +189,9 @@ val e_let : expr list * expr -> expr
 (** A dummy expression (to be removed by
     the end of implementation of this module) *)
 val e_dummy : unit -> expr
+
+(** *)
+val proc_entry_exit : level * expr -> unit
+
+(** *)
+val result : unit -> Fragment.t list

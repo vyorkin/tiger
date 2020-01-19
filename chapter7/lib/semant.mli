@@ -7,10 +7,10 @@ type expr_ty = {
 }
 
 (** Type-checks an AST and produces an error in
-    case of mismatching types or undeclared identifiers. *)
-val trans_prog : Syntax.expr -> unit
+    case of mismatching types or undeclared identifiers *)
+val trans_prog : Syntax.expr -> Fragment.t list
 
-(** Type-checks and translates the expression into intermediate code. *)
+(** Type-checks and translates the expression into intermediate code *)
 val trans_expr : Syntax.expr Location.t -> env:Env.t -> expr_ty
 
 (** Translates a AST type expression into

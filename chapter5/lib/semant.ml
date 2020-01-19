@@ -291,8 +291,8 @@ and trans_decs decs ~env =
     ~f:(fun env dec -> trans_dec dec ~env)
     ~init:env
 
-(* Modifies and returns term-level and
-   type-level environments adding the given declaration *)
+(* Modifies and returns value/term-level and
+   type-level environments adding the given declaration [Syntax.dec] *)
 and trans_dec ~env = function
   | TypeDec tys -> trans_type_decs tys ~env
   | FunDec fs -> trans_fun_decs fs ~env

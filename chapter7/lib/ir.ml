@@ -1,3 +1,5 @@
+module Sy = Syntax
+
 (** Represents a computation of some value (possibly with side effects) *)
 type expr =
   (** Integer constant *)
@@ -90,22 +92,22 @@ and relop =
 
 (** Make a [binop] out of a [Syntax.op] *)
 let binop_of_op = function
-  | Syntax.Plus -> Plus
-  | Syntax.Minus -> Minus
-  | Syntax.Times -> Mul
-  | Syntax.Divide -> Div
+  | Sy.Plus -> Plus
+  | Sy.Minus -> Minus
+  | Sy.Times -> Mul
+  | Sy.Divide -> Div
   | op -> failwith @@
     "Invalid integer arithmetic operator: " ^
     (Syntax_printer.print_op_sym op)
 
 (** Make a [relop] out of a [Syntax.op] *)
 let relop_of_op = function
-  | Syntax.Ge -> Ge
-  | Syntax.Gt -> Gt
-  | Syntax.Le -> Le
-  | Syntax.Lt -> Lt
-  | Syntax.Eq -> Eq
-  | Syntax.Neq -> Ne
+  | Sy.Ge -> Ge
+  | Sy.Gt -> Gt
+  | Sy.Le -> Le
+  | Sy.Lt -> Lt
+  | Sy.Eq -> Eq
+  | Sy.Neq -> Ne
   | op -> failwith @@
     "Invalid relational operator: " ^
     (Syntax_printer.print_op_sym op)

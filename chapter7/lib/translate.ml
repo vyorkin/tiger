@@ -8,7 +8,6 @@ module F = Frame
 
 (* [expr] is an abstract data type,
    its constructors visible only within the [Translate] module *)
-
 type expr =
   (** "Expression" represented as [Ir.expr] *)
   | Ex of Ir.expr
@@ -433,9 +432,30 @@ let e_call (label, args) (cur_level, def_level) is_proc =
 let e_assign (dst, src) =
   Nx Ir.(unEx dst <<< unEx src)
 
-let e_seq _ = Ex Ir.(~$0)
-let e_let _ = Ex Ir.(~$0)
+let rec e_seq = function
+  (* No expressions given, the result is [Const 0] *)
+  | [] -> Ex Ir.(~$0)
+  (* There is a single expression, so use it as the result *)
+  | e :: [] -> e
+  (* All expressions except the last one are
+     evaluated for side-effects. Result is the last [expr] *)
+  | e :: es -> Ex Ir.(ESeq (unNx e, unEx (e_seq es)))
+
+(* Translate assignment expressions,
+   then translate the [body] *)
+let e_let (dec_exprs, body_expr) =
+  let open Ir in
+  let dec_es = seq @@ List.map dec_exprs ~f:unNx in
+  let body_e = unEx body_expr in
+  Ex (ESeq (dec_es, body_e))
+
 let e_dummy () = Ex (Ir.Const 1)
+
+let proc_entry_exit (level, body) =
+  ()
+
+let result () =
+  []
 
 (** Helper module for pretty printing translated expressions *)
 module Printer = struct

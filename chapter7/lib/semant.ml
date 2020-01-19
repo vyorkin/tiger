@@ -46,7 +46,8 @@ let missing_field_error t name =
 let rec trans_prog expr =
   Trace.SemanticAnalysis.trans_prog expr;
   let env = Env.mk () in
-  ignore @@ trans_expr L.(~?expr) ~env
+  ignore @@ trans_expr L.(~?expr) ~env;
+  []
 
 and trans_expr expr ~env =
   let open Syntax in
@@ -312,7 +313,17 @@ and trans_decs decs ~env =
     ~init:env
 
 (* Modifies and returns term-level and
-   type-level environments adding the given declaration *)
+   type-level environments adding the given declaration.
+
+   This function has the following type signature:
+   [Semant.trans_dec : env:Env.t -> Syntax.dec -> Env.t]
+   which means that it returns an augmented value/term-level and
+   type-level environments that are used in processing the
+   [body] of a [let] expression. However, the initialization of a
+   variable translates into an [Ir.expr] that must be put just
+   before the [body] of the [let]. Therefore [Semant.trans_dec] must
+   also returns a [Translate.expr] of assignment expressions that
+   accomplish these initializations *)
 and trans_dec ~env = function
   | TypeDec tys -> trans_type_decs tys ~env
   | FunDec fs -> trans_fun_decs fs ~env
@@ -357,7 +368,7 @@ and trans_fun_decs fs ~env =
     let esc_formals = List.map params ~f:(fun f -> !(f.escapes)) in
     (* Generate a new label *)
     let label = Temp.mk_label None in
-    (* Create a new "nesting level". *)
+    (* Create a new "nesting level" *)
     let parent = Some env.level in
     let level = Tr.new_level ~parent ~label ~formals:esc_formals in
     Trace.Translation.new_level level;

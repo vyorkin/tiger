@@ -56,6 +56,9 @@ module type S = sig
       generates an [Ir.expr] instructions corresponding to external call *)
   val external_call : string -> Ir.expr list -> Ir.expr
 
+  (** Implements a "view shift" *)
+  val proc_entry_exit1 : t * Ir.stmt -> Ir.stmt
+
   (** Helper module for pretty printing frame contents *)
   module Printer : sig
     val print_frame : t -> string

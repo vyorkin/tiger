@@ -10,15 +10,21 @@ module S = Symbol
 
    This module manages these two distinct sets of names *)
 
-type t = int
+(* We represent a "temporary" as a pair of
+   integer (identifier) and an optional name,
+   which is used for registers (and is helpful for tracing) *)
+type t = int * string option
 [@@deriving show { with_path = false }]
 
 type label = Symbol.t
 [@@deriving show { with_path = false }]
 
-let mk =
+let mk_internal =
   let idx = ref (-1) in
-  fun () -> incr idx; !idx
+  fun name -> incr idx; (!idx, name)
+
+let mk () = mk_internal None
+let mk_named name = mk_internal (Some name)
 
 let mk_label name =
   let idx = ref (-1) in
@@ -28,6 +34,11 @@ let mk_label name =
   | None ->
     incr idx;
     !idx |> Int.to_string |> S.mk
+
+let print_temp (id, name) =
+  match name with
+  | Some s -> s
+  | None -> Int.to_string id
 
 let print_label s =
   Symbol.(sprintf "%s <#%d>" s.name s.id)
