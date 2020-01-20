@@ -8,7 +8,7 @@ let run_file fn ch =
   try
     let expr = Parser.main Lexer.read lexbuf in
     Escape.traverse_prog expr;
-    Semant.trans_prog expr;
+    ignore @@ Semant.trans_prog expr;
     pass
   with
   | Lexer.LexingError msg ->

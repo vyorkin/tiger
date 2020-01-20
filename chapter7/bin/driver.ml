@@ -24,8 +24,7 @@ let run_tiger fn ch =
   | Err.Error (err, loc, msg) ->
     eprintf "\n%s\n" (Err.to_string err loc msg)
 
-let run_file fn () =
-  (* Fmt.set_style_renderer Format.std_formatter `Ansi_tty; *)
+let mk_config () =
   Fmt_tty.setup_std_outputs ();
   Logs.set_level @@ Some Logs.Debug;
   let trace_sources = Trace_source.[
@@ -34,7 +33,11 @@ let run_file fn () =
       StackFrame [Stdout];
       Escaping [Stdout]
     ] in
-  let cfg = Config.make ~trace_sources () in
+  Config.make ~trace_sources ()
+
+let run_file fn () =
+  (* Fmt.set_style_renderer Format.std_formatter `Ansi_tty; *)
+  let cfg = mk_config () in
   Logs.set_reporter @@ Trace.mk_reporter cfg;
   (* Logs.set_reporter @@ Logs_fmt.reporter (); *)
   In_channel.with_file fn ~f:(run_tiger fn)
