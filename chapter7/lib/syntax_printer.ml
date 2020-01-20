@@ -165,20 +165,20 @@ and print_assign var expr =
     (print_expr expr.L.value)
 
 and print_record ty_name vfields =
-  sprintf "\n%s :=\n{\n  %s\n}"
+  sprintf "\n%s :=\n{  %s\n}"
     (print_symbol ty_name)
     (print_record_fields vfields)
 
 and print_record_fields fields =
   fields
   |> List.map ~f:(fun (name, expr) -> print_record_field name expr None)
-  |> String.concat ~sep:",\n"
+  |> String.concat ~sep:","
 
 and print_record_field name expr ty =
   sprintf "\n  %s%s = %s"
     (print_symbol name)
-    (print_expr expr.L.value)
     (Option.value_map ty ~default:"" ~f:T.to_string)
+    (print_expr expr.L.value)
 
 and print_cond cond t f =
   sprintf "if %s then %s%s"
