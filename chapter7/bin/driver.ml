@@ -7,7 +7,7 @@ let tiger lexbuf =
   Escape.traverse_prog expr;
   expr
   |> Semant.trans_prog
-  |> List.map ~f:Fragment.show
+  |> List.map ~f:Fragment.print
   |> String.concat ~sep:"\n"
   |> printf "\nFragments:\n\n%s\n"
 

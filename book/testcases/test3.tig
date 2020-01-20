@@ -6,3 +6,70 @@ in
 	rec1.name := "Somebody";
 	rec1
 end
+
+/*
+Fragments:
+
+[PROC]:
+
+--FRAME--
+
+     id: 0
+  label: 0 <#0>
+formals:
+ locals: 0
+
+--BODY--
+
+MOVE
+  TEMP (RV1 (RAX))
+  ESEQ
+    MOVE
+      TEMP (19)
+      ESEQ
+        SEQ
+          MOVE
+            TEMP (17)
+            ESEQ
+              SEQ
+                EXPR
+                  CALL
+                    NAME (_initRecord <#10>)
+                    CONST 16
+                MOVE
+                  TEMP (18)
+                  TEMP (RV1 (RAX))
+              TEMP (18)
+          SEQ
+            MOVE
+              MEM
+                BINOP
+                  PLUS
+                    TEMP (17)
+                    CONST 0
+              NAME (1 <#9>)
+            MOVE
+              MEM
+                BINOP
+                  PLUS
+                    TEMP (17)
+                    CONST 8
+              CONST 1000
+        TEMP (17)
+    ESEQ
+      MOVE
+        ESEQ
+          MOVE
+            MEM
+              BINOP
+                PLUS
+                  TEMP (20)
+                  CONST 0
+            TEMP (19)
+          TEMP (20)
+        NAME (2 <#11>)
+      TEMP (19)
+
+[STRING]: "Somebody" (2 <#11>)
+[STRING]: "Nobody" (1 <#9>)
+*/

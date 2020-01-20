@@ -462,7 +462,16 @@ let proc_entry_exit ({ frame; _ }, body) =
 (** Helper module for pretty printing translated expressions *)
 module Printer = struct
   let print_expr = function
-    | Ex expr -> Ir_printer.print_expr expr
-    | Nx stmt -> Ir_printer.print_stmt stmt
-    | Cx gen_stmt -> "Cx gen_stmt"
+    | Ex expr ->
+      sprintf "ex:\n%s" (Ir_printer.print_expr expr)
+    | Nx stmt ->
+      sprintf "nx:\n%s" (Ir_printer.print_stmt stmt)
+    | Cx gen_stmt ->
+      let l = Temp.mk_label (Some "left") in
+      let r = Temp.mk_label (Some "right") in
+      let stmt = gen_stmt (l, r) in
+      sprintf "cx:\n(%s, %s) ->\n%s"
+        (Temp.print_label l)
+        (Temp.print_label r)
+        (Ir_printer.print_stmt stmt)
 end

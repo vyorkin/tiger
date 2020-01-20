@@ -26,14 +26,15 @@ let mk_internal =
 let mk () = mk_internal None
 let mk_named name = mk_internal (Some name)
 
-let mk_label name =
+let mk_label =
   let idx = ref (-1) in
-  match name with
-  | Some s ->
-    S.mk s
-  | None ->
-    incr idx;
-    !idx |> Int.to_string |> S.mk
+  fun name ->
+    match name with
+    | Some s ->
+      S.mk s
+    | None ->
+      incr idx;
+      !idx |> Int.to_string |> S.mk
 
 let print_temp (id, name) =
   match name with

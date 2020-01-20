@@ -1,28 +1,29 @@
-open Core
+open Core_kernel
 
 (* Given a Tiger function definition comprising a
    [level] and an already-translated [body] expression,
    the [Translate] phase should produce a descriptor for
    the function containing this necessary information *)
 
-(** IR fragment *)
 type t =
-  (** Represents a "fragment" to be translated to assembly language *)
   | Proc of proc
-  (** Represents a pseude-instruction sequence for a string literal *)
   | String of Temp.label * string
 [@@deriving show { with_path = false }]
 
 and proc = {
-  (** The frame descriptor containing machine-specific
-      information about local variables and parameters *)
   frame: Frame.t;
-  (** The result returned from [Frame.proc_entry_exit1].
-      These are "view shift" statements *)
   body: Ir.stmt;
 } [@@deriving show { with_path = false }]
 
-(** Fragment storage interface module *)
+let print = function
+  | Proc { frame; body; } ->
+    sprintf "[PROC]:\n--FRAME--\n%s\n--BODY--\n%s"
+      (Frame.Printer.print_frame frame)
+      (Ir_printer.print_stmt body)
+  | String (l, s) ->
+    sprintf "[STRING]: \"%s\" (%s)"
+      s (Temp.print_label l)
+
 module Store = struct
   let fs : (t list) ref = ref []
 
@@ -30,7 +31,7 @@ module Store = struct
     fs := Proc e :: !fs
 
   let push_string s =
-    (* TODO: Use Hashtbl for String fragments *)
+    (* TODO: Use [Hashtbl] for [string] fragments *)
     let matches = function
       | Proc _ -> false
       | String (_, s') -> String.equal s s'

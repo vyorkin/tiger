@@ -153,10 +153,11 @@ and trans_expr expr ~env =
      but we need to check all previous expressions too *)
   and tr_seq exprs ~env =
     Trace.SemanticAnalysis.tr_seq exprs;
-    List.fold_left
-      ~f:(fun _ expr -> tr_expr expr ~env)
-      ~init:ret_unit
-      exprs
+    let rs = List.map exprs ~f:(tr_expr ~env) in
+    (* There is always at least one expression in [exprs] list *)
+    let lr = List.last_exn rs in
+    let es = List.map rs ~f:(fun e -> e.expr) in
+    ret (Tr.e_seq es) lr.ty
 
   and tr_cond cond t f ~env =
     Trace.SemanticAnalysis.tr_cond cond t f;
@@ -206,10 +207,11 @@ and trans_expr expr ~env =
   and tr_let decs body ~env =
     Trace.SemanticAnalysis.tr_let decs body;
     (* Update env according to declarations *)
-    let env' = trans_decs decs ~env in
+    let (env', exprs) = trans_decs decs ~env in
     (* Then translate the body expression using
        the new augmented environments *)
-    trans_expr body ~env:env'
+    let r = trans_expr body ~env:env' in
+    ret (Tr.e_let (exprs, r.expr)) r.ty
   (* Then the new environments are discarded *)
 
   and tr_record_field rec_typ tfields (name, expr) ~env =
@@ -318,8 +320,10 @@ and trans_expr expr ~env =
 and trans_decs decs ~env =
   Trace.SemanticAnalysis.trans_decs decs;
   List.fold_left decs
-    ~f:(fun env dec -> trans_dec dec ~env)
-    ~init:env
+    ~f:(fun (env, exprs) dec ->
+        let (env', exprs') = trans_dec dec ~env in
+        (env', exprs @ exprs'))
+    ~init:(env, [])
 
 (* Modifies and returns term-level and
    type-level environments adding the given declaration.
@@ -331,11 +335,11 @@ and trans_decs decs ~env =
    [body] of a [let] expression. However, the initialization of a
    variable translates into an [Ir.expr] that must be put just
    before the [body] of the [let]. Therefore [Semant.trans_dec] must
-   also returns a [Translate.expr] of assignment expressions that
+   also return a [Translate.expr] of assignment expressions that
    accomplish these initializations *)
 and trans_dec ~env = function
-  | TypeDec tys -> trans_type_decs tys ~env
-  | FunDec fs -> trans_fun_decs fs ~env
+  | TypeDec tys -> (trans_type_decs tys ~env, [])
+  | FunDec fs -> (trans_fun_decs fs ~env, [])
   | VarDec var -> trans_var_dec var ~env
 
 and trans_type_decs tys ~env =
@@ -434,14 +438,16 @@ and trans_var_dec var ~env =
   let open Syntax in
   Trace.SemanticAnalysis.trans_var_dec var;
   let { var_name; init; escapes; _ } = var.L.value in
-  let { ty = init_ty; _ } = trans_expr init ~env in
-  assert_init var init_ty ~env;
+  let init_r = trans_expr init ~env in
+  assert_init var init_r.ty ~env;
   (* Add a new var to the term-level env *)
   let access = Tr.alloc_local ~level:env.level ~escapes:!escapes in
   Trace.Translation.alloc_local access;
-  let entry = Env.VarEntry { ty = init_ty; access } in
+  let entry = Env.VarEntry { ty = init_r.ty; access } in
   let venv' = ST.bind_var env.venv var_name entry in
-  { env with venv = venv' }
+  let var_expr = Tr.e_simple_var (access, env.level) in
+  let exprs = [Tr.e_assign (var_expr, init_r.expr)] in
+  { env with venv = venv' }, exprs
 
 (* Translates AST type expression into a
    digested type description that we keep in the [tenv] *)

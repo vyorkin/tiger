@@ -7,3 +7,37 @@ let
 in
 	arr1
 end
+
+/*
+
+Fragments:
+
+[PROC]:
+
+--FRAME--
+
+     id: 0
+  label: 0 <#0>
+formals:
+ locals: 0
+
+--BODY--
+
+MOVE
+  TEMP (RV1 (RAX))
+  ESEQ
+    MOVE
+      TEMP (18)
+      ESEQ
+        SEQ
+          EXPR
+            CALL
+              NAME (_initArray <#8>)
+              CONST 10
+              CONST 0
+          MOVE
+            TEMP (17)
+            TEMP (RV1 (RAX))
+        TEMP (17)
+    TEMP (18)
+*/

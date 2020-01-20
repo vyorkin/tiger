@@ -49,7 +49,7 @@ val mk : unit -> t
 (** Push the given expression to the [t.path] stack *)
 val enter_expr : t -> Syntax.expr L.t -> t
 
-(** Updates the environment by setting a [done] *)
+(** Updates the environment by setting a "break" *)
 val enter_loop : t -> Temp.label * t
 
 (** Contains bindings for predefined functions *)

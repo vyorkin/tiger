@@ -10,3 +10,80 @@ function nfactor(n: int): int =
 in
 	nfactor(10)
 end
+
+/*
+Fragments:
+
+[PROC]:
+
+--FRAME--
+
+     id: 0
+  label: 0 <#0>
+formals:
+ locals: 0
+
+--BODY--
+
+MOVE
+  TEMP (RV1 (RAX))
+  ESEQ
+    EXPR
+      CONST 0
+    CALL
+      NAME (1 <#7>)
+      TEMP (FP (RBP))
+      CONST 10
+
+[PROC]:
+
+--FRAME--
+
+     id: 1
+  label: 1 <#7>
+formals: F(-8) R((17, None))
+ locals: 0
+
+--BODY--
+
+MOVE
+  TEMP (RV1 (RAX))
+  ESEQ
+    SEQ
+      CJUMP
+        EQ
+          TEMP (18)
+          CONST 0
+        T: 2 <#10>
+        F: 3 <#11>
+      SEQ
+        LABEL (2 <#10>)
+        SEQ
+          MOVE
+            TEMP (19)
+            CONST 1
+          SEQ
+            JUMP
+              NAME (4 <#12>)
+            SEQ
+              LABEL (3 <#11>)
+              SEQ
+                MOVE
+                  TEMP (19)
+                  BINOP
+                    MUL
+                      TEMP (18)
+                      CALL
+                        NAME (1 <#7>)
+                        MEM
+                          BINOP
+                            PLUS
+                              TEMP (FP (RBP))
+                              CONST -8
+                        BINOP
+                          MINUS
+                            TEMP (18)
+                            CONST 1
+                LABEL (4 <#12>)
+    TEMP (19)
+*/
