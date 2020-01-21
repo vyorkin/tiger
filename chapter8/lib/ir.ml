@@ -163,3 +163,26 @@ let rec seq = function
   | s :: [] -> s
   | s :: ss -> Seq (s, seq ss)
   | [] -> Expr ~$0
+
+(* We cannot always tell if [Ir.stmt] and [Ir.expr] commute.
+   For example, whether [Move(Mem(x), y)] commutes with [Mem(z)]
+   depends on whether [x = z], which we cannot always determine at
+   compile time. So we conservatively approximate whether statements commute.
+
+   s := Move(Mem(x), y)
+   e := BinOp(Plus, Mem(x), z)
+
+   It makes it possible to identify and justify special cases like:
+
+   [BinOp(Const n, op, ESeq(s, e)) = ESeq(s, BinOp(Const n, op, e))] *)
+let commute s e =
+  let open Ir in
+  match s, e with
+  (* "Empty" statement commutes with any expression *)
+  | Expr (Const _), _ -> true
+  (* Label commutes with any statement  *)
+  | _, Name _ -> true
+  (* Constant commutes with any statement *)
+  | _, Const _ -> true
+  (* Anything else is assumed not to commute *)
+  | _, _ -> false
