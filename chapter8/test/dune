@@ -1,6 +1,6 @@
 (executable
  (name testsuite)
- (libraries core ch7 alcotest)
+ (libraries core ch8 alcotest)
  (preprocess (pps ppx_deriving.make)))
 
 (env (dev (flags (:standard -warn-error -A))))

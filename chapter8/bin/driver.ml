@@ -1,6 +1,6 @@
 open Core
 
-open Ch7
+open Ch8
 
 let tiger lexbuf =
   let expr = Parser.main Lexer.read lexbuf in

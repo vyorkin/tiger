@@ -1,7 +1,7 @@
 open Core
 open Alcotest
 
-open Ch7
+open Ch8
 
 let run_file fn ch =
   let lexbuf = Lexbuf.mk fn ch in
