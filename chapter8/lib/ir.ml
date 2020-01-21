@@ -24,7 +24,7 @@ type expr =
   (** The statement [stmt] is evaluated for side effects,
       then [expr] is evaluated for a result *)
   | ESeq of stmt * expr
-  [@@deriving show { with_path = false }]
+[@@deriving show { with_path = false }]
 
 (** Statements of the IR language perform side effects and control flow *)
 and stmt =
@@ -53,7 +53,7 @@ and stmt =
       This is like a label definition in assembly language. The value
       [Label n] may be the target of jumps, calls, etc *)
   | Label of Temp.label
-  [@@deriving show { with_path = false }]
+[@@deriving show { with_path = false }]
 
 (* a > b | c < d *)
 (* ---------------------------------------------------------- *)
@@ -78,7 +78,7 @@ and binop =
   | Plus | Minus | Mul | Div
   | And | Or | Xor
   | LShift | RShift | ARShift
-  [@@deriving show { with_path = false }]
+[@@deriving show { with_path = false }]
 
 (** The relational operators are [Eq] and [Ne] for
     integer equality and nonequality (signed or unsigned).
@@ -88,7 +88,7 @@ and relop =
   | Eq | Ne
   | Lt | Gt | Le | Ge
   | Ult | Ule | Ugt | Uge
-  [@@deriving show { with_path = false }]
+[@@deriving show { with_path = false }]
 
 (** Make a [binop] out of a [Syntax.op] *)
 let binop_of_op = function
@@ -144,13 +144,13 @@ let (<+>) l r = ~@(l |+| r)
 let (<->) l r = ~@(l |-| r)
 
 (** Helper function to ease construction of
-   array elements and record fields accessor IR.
+    array elements and record fields accessor IR.
 
-   If [a] is a memory-resident array variable represented as [Mem(e)],
-   then the contents of address [e] will be a one-word pointer value [p].
-   The contents of addresses [p], [p + w], [p + 2*w], ... [p + n*w]
-   (where [w] is the word size) will be elements of the array
-   (all elements are one word long) *)
+    If [a] is a memory-resident array variable represented as [Mem(e)],
+    then the contents of address [e] will be a one-word pointer value [p].
+    The contents of addresses [p], [p + w], [p + 2*w], ... [p + n*w]
+    (where [w] is the word size) will be elements of the array
+    (all elements are one word long) *)
 let indexed e i w = ~@(~@e |+| (i |*| ~$w))
 
 (** Helper function to simplify
@@ -164,17 +164,26 @@ let rec seq = function
   | s :: ss -> Seq (s, seq ss)
   | [] -> Expr ~$0
 
-(* We cannot always tell if [Ir.stmt] and [Ir.expr] commute.
-   For example, whether [Move(Mem(x), y)] commutes with [Mem(z)]
-   depends on whether [x = z], which we cannot always determine at
-   compile time. So we conservatively approximate whether statements commute.
+(** Checks if the given statement [s] and expression [e] commute.
+    Commute means that change the order of the evaluation of [s] and [e].
 
-   s := Move(Mem(x), y)
-   e := BinOp(Plus, Mem(x), z)
+    For example, it the following case we can not do this:
 
-   It makes it possible to identify and justify special cases like:
+    s := Move(Mem(x), y)
+    e := BinOp(Plus, Mem(x), z)
 
-   [BinOp(Const n, op, ESeq(s, e)) = ESeq(s, BinOp(Const n, op, e))] *)
+    Because [s] and [e] don't commute in the example above.
+
+    We cannot always tell if [Ir.stmt] and [Ir.expr] commute.
+    For example, whether [Move(Mem(x), y)] commutes with [Mem(z)]
+    depends on whether [x = z], which we cannot always determine at
+    compile time. So we conservatively approximate whether statements commute.
+
+    It makes it possible to identify and justify special cases like:
+
+    [BinOp(Const n, op, ESeq(s, e)) = ESeq(s, BinOp(Const n, op, e))]
+
+    (For more info see p.176 of the Tiger book) *)
 let commute s e =
   let open Ir in
   match s, e with
