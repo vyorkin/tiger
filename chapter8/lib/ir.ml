@@ -165,18 +165,19 @@ let rec seq = function
   | [] -> Expr ~$0
 
 (** Checks if the given statement [s] and expression [e] commute.
-    Commute means that change the order of the evaluation of [s] and [e].
+    Commute means that we can change the order of the evaluation of [s] and [e].
 
     For example, it the following case we can not do this:
 
     s := Move(Mem(x), y)
     e := BinOp(Plus, Mem(x), z)
 
-    Because [s] and [e] don't commute in the example above.
+    Because [s] and [e] don't commute in the example above ([e] depends on [s]).
 
     We cannot always tell if [Ir.stmt] and [Ir.expr] commute.
     For example, whether [Move(Mem(x), y)] commutes with [Mem(z)]
-    depends on whether [x = z], which we cannot always determine at
+    depends on whether [x = z] (if we're modifying the same memory
+    address then they don't commute), which we cannot always determine at
     compile time. So we conservatively approximate whether statements commute.
 
     It makes it possible to identify and justify special cases like:
