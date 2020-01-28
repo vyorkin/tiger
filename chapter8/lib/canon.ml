@@ -204,20 +204,20 @@ and do_stmt = function
   | Seq (s1, s2) ->
      do_stmt s1 ++ do_stmt s2
   | Jump (e, l) ->
-     reorder_stmt [e] (fun es -> Jump (L.hd es, l))
+     reorder_stmt [e] (fun es -> L.hd es <|~ l)
   | CJump { op; left; right; t; f } ->
      reorder_stmt [left; right]
        (fun es -> CJump { op; left = L.hd es; right = L.(hd (tl es)); t; f})
   | Move (Temp t, Call (name, args)) ->
      reorder_stmt (name :: args)
-       (fun es -> Move (Temp t, Call (L.hd es, L.tl es)))
+       (fun es -> ~*t <<< Call (L.hd es, L.tl es))
   | Move (Temp t, src) ->
-     reorder_stmt [src] (fun es -> Move (Temp t, L.hd es))
+     reorder_stmt [src] (fun es -> ~*t <<< L.hd es)
   | Move (Mem addr, e) ->
      reorder_stmt [addr; e]
-       (fun es -> Move (Mem (L.hd es), (L.(hd (tl es)))))
+       (fun es -> ~@(L.hd es) <<< (L.(hd (tl es))))
   | Move (ESeq (s, e1), e2) ->
-     do_stmt (Seq (s, Move (e1, e2)))
+     do_stmt (Seq (s, e1 <<< e2))
   | Expr (Call (name, args)) ->
      reorder_stmt (name :: args)
        (fun es -> Expr (Call (L.hd es, L.tl es)))
@@ -231,7 +231,7 @@ and do_expr = function
      reorder_expr [l; r]
        (fun es -> BinOp (L.hd es, op, L.(hd (tl es))))
   | Mem addr ->
-     reorder_expr [addr] (fun es -> Mem (L.hd es))
+     reorder_expr [addr] (fun es -> ~@(L.hd es))
   | ESeq (s, e) ->
      (* Pull-out side-effectful statements out of [s] *)
      let s1 = do_stmt s in
