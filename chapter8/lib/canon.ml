@@ -137,9 +137,10 @@ let (++) s1 s2 = join s1 s2
    The idea is to assign each return value immediately
    into a fresh temporary register *)
 
-(* [Ir.expr list -> (Ir.stmt * Ir.expr list)]
-   Split a given [Ir.expr list] by pulling-out side-effectful
-   statements out of it and extracting a new cleaned-up expressions *)
+(* Split a given [Ir.expr list] by pulling-out side-effectful
+   statements out of it and extracting a new cleaned-up expressions
+
+  [Ir.expr list -> (Ir.stmt * Ir.expr list)] *)
 let rec reorder = function
   | [] ->
      (nop, [])
@@ -168,12 +169,13 @@ let rec reorder = function
        (* Otherwise it is possible that side-effectful statements in [s2]
           alter/affect the result produced by [e1]. To break this dependency we
           add another [Move] statement between the [s1] and [s2] that
-          assigns [e1] to a new temporary [Temp.t] *)
+          assigns [e1] to a new temporary [t] *)
        let t = Temp.mk () in
        (s1 ++ (~*t <<< e1) ++ s2, ~*t :: es)
 
 (* Takes an [Ir.expr list] of subexpressions and a
-   [build : Ir.expr list -> Ir.stmt] function.
+   [build : Ir.expr list -> Ir.stmt] function that
+   constructs a resulting cleaned-up expression.
    It pulls all [Ir.ESeq]'s out of the [Ir.expr list],
    yielding a statement [s] that contains all the statements
    from the [Ir.ESeq]'s and a list [l] of cleaned-up expressions.
@@ -242,10 +244,25 @@ and do_expr = function
 let linearize stmt =
   let rec linear = function
     | Seq (s1, s2), ss -> linear (s1, linear (s2, ss))
-    | s1, s2 -> s1 :: s2
-  in linear (do_stmt stmt, [])
+    | s, ss -> s :: ss in
+  let no_eseq = do_stmt stmt in
+  linear (no_eseq, [])
 
+(* From a list of cleaned  statements (see the [linearize] function),
+   produce a list of basic blocks satisfying the following properties:
+   - Every block begins with a [Ir.Label]
+   - A [Ir.Label] appears only at the beginning of a block
+   - Any [Ir.Jump] or [Ir.CJump] is the last [Ir.stmt] in a block
+   - Every block ends with a [Ir.Jump] or [Ir.CJump]
+   - Also produce the "label" to which control will be passed upon exit *)
 let basic_blocks stmts =
+  let done_l = Temp.mk_label None in
   (Temp.mk_label None, [])
 
+(* From a list of basic blocks satisfying properties 1-6,
+   along with an "exit" label, produce a list of stms such that:
+   Every [Ir.CJump (_, t, f)] is immediately followed by [Ir.Label f].
+   The blocks are reordered to satisfy property 7; also
+   in this reordering as many JUMP(T.NAME(lab)) statements
+   as possible are eliminated by falling through into [Ir.Label lab]. *)
 let trace_schedule (stmts, label) = []
