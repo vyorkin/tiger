@@ -3,11 +3,18 @@ open Ir
 module L = List
 
 (* It is useful to be able to evaluate the subexpressions of
-   an expression in any order. But the subexpressions of
-   [Ir.expr] can contain side effects: [Ir.ESeq] and [Ir.Call]
-   nodes that contain assignment statements and perform input/output.
-   If IR expressions did not contain [Ir.ESeq] and [Ir.Call] nodes,
-   then the order of evaluation would not matter *)
+   an expression in any order:
+
+   - BinOp (l_expr, op, r_expr)
+   - Mem addr_expr
+
+   - Call (name_expr, args_expr_list)
+   - ESeq (stmt, result_expr)
+
+   But the subexpressions of [Ir.expr] can contain side effects:
+   [Ir.ESeq] and [Ir.Call] nodes that contain assignment statements and
+   perform input/output. If IR expressions did not contain
+   [Ir.ESeq] and [Ir.Call] nodes, then the order of evaluation would not matter *)
 
 (* The idea is to lift [Ir.ESeq] nodes higher and higher in
    the tree, until they can become [Ir.Seq] nodes *)
@@ -25,10 +32,6 @@ let linearize stmt = []
 let basic_blocks stmts label = []
 
 let trace_schedule stmts label = []
-
-(* When there are no [Ir.ESeq]'s we will use
-   this [nop] statement (which does nothing) *)
-let nop = Expr ~$0
 
 (* Joins two statements [x] and [y] ignoring
    any side-effect-only statements that look like [Expr (Const a)]

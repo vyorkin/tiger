@@ -158,11 +158,15 @@ let indexed e i w = ~@(~@e |+| (i |*| ~$w))
 let cjump left op right t f =
   CJump { op = relop_of_op op; left; right; t; f }
 
+(** When there are no [Ir.ESeq]'s we will use
+    this [nop] statement (which does nothing) *)
+let nop = Expr ~$0
+
 (** Helper function to construct a sequence of statements **)
 let rec seq = function
   | s :: [] -> s
   | s :: ss -> Seq (s, seq ss)
-  | [] -> Expr ~$0
+  | [] -> nop
 
 (** Checks if the given statement [s] and expression [e] commute.
     Commute means that we can change the order of the evaluation of [s] and [e].
