@@ -42,17 +42,6 @@ module L = List
       Resulting basic blocks [(Ir.stmt list) list] are ordered into a set of
       traces (in which [Ir.CJump] is followed by its [false] label). *)
 
-(* From an arbitrary [Ir.stmt] statement, produce an
-   [Ir.stmt list] of cleaned statements satisfying the following properties:
-	 - No [Ir.Seq]'s or [Ir.ESeq]'s
-	 - The parent of every [Ir.Call] is an [Ir.Exp] or a [Ir.Move (Ir.Temp t, ...)] *)
-let linearize stmt = []
-
-let basic_blocks stmts =
-  (Temp.mk_label None, [])
-
-let trace_schedule (stmts, label) = []
-
 (* Checks if the given statement [s] and expression [e] commute.
    Commute means that we can change the order of the evaluation of [s] and [e].
 
@@ -156,11 +145,11 @@ let rec reorder = function
      (nop, [])
   (* If this is a [Call] expresion then we rewrite it by
      assigning its return value a fresh [Temp.t] *)
-  | (Call _ as e) :: es ->
+  | (Call _ as call) :: es ->
      let t = Temp.mk () in
      (* This technique generates extra [Move] instructions, which our
         register allocator can clean up (see chapter 11 of the Tiger-book) *)
-     reorder @@ ESeq (~*t <<< e, ~*t) :: es
+     reorder @@ ESeq (~*t <<< call, ~*t) :: es
   (* If this is a sequence of expressions, then... *)
   | e :: es ->
      (* Split the "head" expression [e] by pulling-out a statement [s1]
@@ -238,9 +227,25 @@ and do_expr = function
      (* Split the expression [e] by pulling-out side-effectful
         statements [s2] out of it and extracting a new cleaned-up expression [e'] *)
      let (s2, e') = do_expr e in
+     (* Join side-effects, return [e'] expression *)
      (s1 ++ s2, e')
   | Call (name, args) ->
      reorder_expr (name :: args)
        (fun es -> Call (L.hd es, L.tl es))
   | e ->
      reorder_expr [] (fun _ -> e)
+
+(* From an arbitrary [Ir.stmt] statement, produce an [Ir.stmt list] of
+   cleaned statements satisfying the following properties:
+	 - No [Ir.Seq]'s or [Ir.ESeq]'s
+	 - The parent of every [Ir.Call] is an [Ir.Exp] or a [Ir.Move (Ir.Temp t, ...)] *)
+let linearize stmt =
+  let rec linear = function
+    | Seq (s1, s2), ss -> linear (s1, linear (s2, ss))
+    | s1, s2 -> s1 :: s2
+  in linear (do_stmt stmt, [])
+
+let basic_blocks stmts =
+  (Temp.mk_label None, [])
+
+let trace_schedule (stmts, label) = []
