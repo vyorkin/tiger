@@ -2,8 +2,13 @@ open Ir
 
 module L = List
 
-(* It is useful to be able to evaluate the subexpressions of
-   an expression in any order:
+(* There are certain aspects of the IR language that do not
+   correspond exactly with machine languages, and some aspects
+   of IR language interfere with compile-time optimization analyses.
+
+   For example, it is useful to be able to evaluate the
+   subexpressions of an expression in any order.
+   Here is the list of possible subexpressions:
 
    - BinOp (l_expr, op, r_expr)
    - Mem addr_expr
@@ -14,35 +19,50 @@ module L = List
    But the subexpressions of [Ir.expr] can contain side effects:
    [Ir.ESeq] and [Ir.Call] nodes that contain assignment statements and
    perform input/output. If IR expressions did not contain
-   [Ir.ESeq] and [Ir.Call] nodes, then the order of evaluation would not matter *)
+   [Ir.ESeq] and [Ir.Call] nodes, then the order of evaluation would not matter.
 
-(* The idea is to lift [Ir.ESeq] nodes higher and higher in
-   the tree, until they can become [Ir.Seq] nodes *)
+   How to eliminate [Ir.ESeq] nodes?
+   The idea is to lift [Ir.ESeq] nodes higher and higher in
+   the tree, until they can become [Ir.Seq] nodes.
 
-(* For each kind of [Ir.stmt] or [Ir.expr] we can identify
-   the subexpressions and apply rewriting rules to them  *)
+   For each kind of [Ir.stmt] or [Ir.expr] we can identify
+   the subexpressions and apply rewriting rules to them.
 
-(* From an arbitrary Tree statement, produce a list of cleaned trees
-   satisfying the following properties:
-	 1. No [Ir.Seq]'s or [Ir.ESeq]'s
-	 2. The parent of every [Ir.Call] is an
-      [Ir.Exp](..) or a [Ir.Move(Ir.Temp t, ...)] *)
+   The transformation is done in 3 stages:
+
+   1. Linearize:
+      [Ir.stmt] is rewritten into a list of canonical trees [Ir.stmt list] without
+      [Ir.Seq (s1, s2) : Ir.stmt] or [Ir.ESeq (s, e) : Ir.stmt] nodes.
+
+   2. Basic blocks:
+      The [Ir.stmt list] is groupped into a set [Ir.stmt list] of basic blocks,
+      which contain no internal jumps or labels (sequences of straight-line code).
+
+   3. Trace schedule:
+      Resulting basic blocks [(Ir.stmt list) list] are ordered into a set of
+      traces (in which [Ir.CJump] is followed by its [false] label). *)
+
+(* From an arbitrary [Ir.stmt] statement, produce an
+   [Ir.stmt list] of cleaned statements satisfying the following properties:
+	 - No [Ir.Seq]'s or [Ir.ESeq]'s
+	 - The parent of every [Ir.Call] is an [Ir.Exp] or a [Ir.Move (Ir.Temp t, ...)] *)
 let linearize stmt = []
 
-let basic_blocks stmts label = []
+let basic_blocks stmts =
+  (Temp.mk_label None, [])
 
-let trace_schedule stmts label = []
+let trace_schedule (stmts, label) = []
 
-(* Joins two statements [x] and [y] ignoring
+(* Joins two statements [s1] and [s2] ignoring
    any side-effect-only statements that look like [Expr (Const a)]
    ([nop] statement, which does nothing) *)
-let join x y =
-  match x, y with
-  | x, Expr (Const _) -> x
-  | Expr (Const _), y -> y
-  | x, y -> Seq (x, y)
+let join s1 s2 =
+  match s1, s2 with
+  | s1, Expr (Const _) -> s1
+  | Expr (Const _), s2 -> s2
+  | s1, s2 -> Seq (s1, s2)
 
-let (++) x y = join x y
+let (++) s1 s2 = join s1 s2
 
 (* Takes a [Ir.expr list] and returns a [(Ir.stmt, Ir.expr list)].
    The first element [Ir.stmt] contains all the things that
@@ -53,7 +73,7 @@ let (++) x y = join x y
    Remember, if [Ir.stmt] and [Ir.expr] don't "commute" then we
    can't change the order of their evaluation.
 
-   Example:
+   Examples:
    --------
 
    [e1; e2; ESeq(s, e3)]
@@ -138,7 +158,6 @@ and do_expr = function
      let (s2, e) = do_expr e in
      (s1 ++ s2, e)
   | Call (name, args) ->
-     reorder_expr (name :: args)
-       (fun es -> Call (L.hd es, L.tl es))
+     reorder_expr (name :: args) (fun es -> Call (L.hd es, L.tl es))
   | e ->
      reorder_expr [] (fun _ -> e)
