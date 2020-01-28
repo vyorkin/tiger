@@ -167,37 +167,3 @@ let rec seq = function
   | s :: [] -> s
   | s :: ss -> Seq (s, seq ss)
   | [] -> nop
-
-(** Checks if the given statement [s] and expression [e] commute.
-    Commute means that we can change the order of the evaluation of [s] and [e].
-
-    For example, it the following case we can not do this:
-
-    s := Move(Mem(x), y)
-    e := BinOp(Plus, Mem(x), z)
-
-    Because [s] and [e] don't commute in the example above ([e] depends on [s]).
-
-    We cannot always tell if [stmt] and [expr] commute.
-    For example, whether [Move(Mem(x), y)] commutes with [Mem(z)]
-    depends on whether [x = z] (if we're modifying the same memory
-    address then they don't commute), which we cannot always determine at
-    compile time. So we conservatively approximate whether statements commute.
-
-    It makes it possible to identify and justify special cases like:
-
-    [BinOp(Const n, op, ESeq(s, e)) = ESeq(s, BinOp(Const n, op, e))]
-
-    (For more info see p.176 of the Tiger book) *)
-let commute s e =
-  match s, e with
-  (* "Empty" statement commutes with any expression *)
-  | Expr (Const _), _ -> true
-  (* Label commutes with any statement  *)
-  | _, Name _ -> true
-  (* Constant commutes with any statement *)
-  | _, Const _ -> true
-  (* Anything else is assumed not to commute *)
-  | _, _ -> false
-
-let (<.>) s e = commute s e

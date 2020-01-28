@@ -53,6 +53,40 @@ let basic_blocks stmts =
 
 let trace_schedule (stmts, label) = []
 
+(* Checks if the given statement [s] and expression [e] commute.
+   Commute means that we can change the order of the evaluation of [s] and [e].
+
+   For example, it the following case we can not change the evaluation order:
+
+   s := Move (Mem x, y)
+   e := BinOp (Plus, Mem x, z)
+
+   Because [s] and [e] don't commute in the example above ([e] depends on [s]).
+
+   We cannot always tell if [stmt] and [expr] commute.
+   For example, whether [Move (Mem x, y)] commutes with [Mem z]
+   depends on whether [x = z] (if we're modifying the same memory
+   address then they don't commute), which we cannot always determine at
+   compile time. So we conservatively approximate whether statements commute.
+
+   It makes it possible to identify and justify special cases like:
+
+   [BinOp(Const n, op, ESeq(s, e)) = ESeq(s, BinOp(Const n, op, e))]
+
+   (For more info see p.176 of the Tiger book) *)
+let commute s e =
+  match s, e with
+  (* "Empty" statement commutes with any expression *)
+  | Expr (Const _), _ -> true
+  (* Label commutes with any statement  *)
+  | _, Name _ -> true
+  (* Constant commutes with any statement *)
+  | _, Const _ -> true
+  (* Anything else is assumed not to commute *)
+  | _, _ -> false
+
+let (<.>) s e = commute s e
+
 (* Joins two statements [s1] and [s2] ignoring any side-effect-only statements that
    look like [Expr (Const a)] -- the [Ir.nop] statement (which does nothing) *)
 let join s1 s2 =
@@ -86,7 +120,7 @@ let (++) s1 s2 = join s1 s2
        stmt  := s
        exprs := [e1; e2; e3]
 
-   (1) If [s ~~ e1 = true] and [s ~~ e2 = false]
+   (1) If [s ~~ e1] and [not (s ~~ e2)]
 
           s e1 == e1 s
           s e2 <> e2 s
@@ -94,7 +128,7 @@ let (++) s1 s2 = join s1 s2
        stmt  := Seq(Move(t1, e1), Seq(Move(t2, e2), s))
        exprs := [Temp t1; Temp t2; e3]
 
-   (2) If [s ~~ e1 = false] and [s ~~ e2 = true]
+   (2) If [not (s ~~ e1)] and [s ~~ e2]
 
           s e1 <> e1 s
           s e2 == e2 s
@@ -113,40 +147,58 @@ let (++) s1 s2 = join s1 s2
    overwrite the [Frame.rv1] register before [Plus] can be executed.
    The idea is to assign each return value immediately
    into a fresh temporary register *)
+
+(* [Ir.expr list -> (Ir.stmt * Ir.expr list)]
+   Reorders a give [Ir.expr list] by
+*)
 let rec reorder = function
   | [] ->
      (nop, [])
+  (* If this is a [Call] expresion then we rewrite it by
+     assigning its return value a fresh [Temp.t] *)
   | (Call _ as e) :: es ->
      let t = Temp.mk () in
-     (* This technique generates extra [Move] instructions,
-        which our register allocator can clean up (see chapter 11 of the Tiger-book) *)
+     (* This technique generates extra [Move] instructions, which our
+        register allocator can clean up (see chapter 11 of the Tiger-book) *)
      reorder @@ ESeq (~*t <<< e, ~*t) :: es
+  (* If this is a sequence of expressions, then... *)
   | e :: es ->
+     (* Split the "head" expression [e] by pulling-out a statement [s1]
+        containing all the side-effects and extracting a new cleaned-up expression [e1] *)
      let (s1, e1) = do_expr e in
-     let (s2, es) = reorder es in
-     if s2 <.> e
+     (* Do the same thing for the rest of the expressions [es] recursively *)
+     let (s2, es') = reorder es in
+     (* If (all the side-effectful statements in) [s2] and our cleaned-up "head" expression
+        [e1] commute (which means that we can change the order of their evaluation) *)
+     if s2 <.> e1
      then
-       (s1 ++ s2, e1 :: es)
+       (* Then we can [join] our side-effectful statements
+          and the cleaned-up expressions *)
+       (s1 ++ s2, e1 :: es')
      else
+       (* Otherwise it is possible that side-effectful statements in [s2]
+          alter/affect the result produced by [e1]. To break this dependency we
+          add another [Move] statement between the [s1] and [s2] that
+          assigns [e1] to a new temporary [Temp.t] *)
        let t = Temp.mk () in
        (s1 ++ (~*t <<< e1) ++ s2, ~*t :: es)
 
 (* Takes an [Ir.expr list] of subexpressions and a
    [build : Ir.expr list -> Ir.stmt] function.
    It pulls all [Ir.ESeq]'s out of the [Ir.expr list],
-   yielding a statement [s] that contains all the
-   statements from the [Ir.ESeq]'s and a list [l] of
-   cleaned-up expressions. Then it makes [Ir.Seq (s, build l)] *)
+   yielding a statement [s] that contains all the statements
+   from the [Ir.ESeq]'s and a list [l] of cleaned-up expressions.
+   Then it [join]'s them by making an [Ir.Seq (s, build l)] *)
 and reorder_stmt exprs build =
-  let (s, e) = reorder exprs in
-  s ++ build e
+  let (s, l) = reorder exprs in
+  s ++ build l
 
 (* Same thing, but returns a pair [(Ir.stmt, Ir.expr)], where
    the first element is a statement containing all the side-effects
-   pulled out of [expr] and the second one is [build l] *)
+   pulled out of [Ir.expr list] and the second one is [build l] *)
 and reorder_expr exprs build =
-  let (s, e) = reorder exprs in
-  (s, build e)
+  let (s, l) = reorder exprs in
+  (s, build l)
 
 and do_stmt = function
   | Seq (s1, s2) ->
@@ -176,14 +228,19 @@ and do_stmt = function
 
 and do_expr = function
   | BinOp (l, op, r) ->
-     reorder_expr [l; r] (fun es -> BinOp (L.hd es, op, L.(hd (tl es))))
+     reorder_expr [l; r]
+       (fun es -> BinOp (L.hd es, op, L.(hd (tl es))))
   | Mem addr ->
      reorder_expr [addr] (fun es -> Mem (L.hd es))
   | ESeq (s, e) ->
+     (* Pull-out side-effectful statements out of [s] *)
      let s1 = do_stmt s in
-     let (s2, e) = do_expr e in
-     (s1 ++ s2, e)
+     (* Split the expression [e] by pulling-out side-effectful
+        statements [s2] out of it and extracting a new cleaned-up expression [e'] *)
+     let (s2, e') = do_expr e in
+     (s1 ++ s2, e')
   | Call (name, args) ->
-     reorder_expr (name :: args) (fun es -> Call (L.hd es, L.tl es))
+     reorder_expr (name :: args)
+       (fun es -> Call (L.hd es, L.tl es))
   | e ->
      reorder_expr [] (fun _ -> e)
