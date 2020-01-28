@@ -53,9 +53,8 @@ let basic_blocks stmts =
 
 let trace_schedule (stmts, label) = []
 
-(* Joins two statements [s1] and [s2] ignoring
-   any side-effect-only statements that look like [Expr (Const a)]
-   ([nop] statement, which does nothing) *)
+(* Joins two statements [s1] and [s2] ignoring any side-effect-only statements that
+   look like [Expr (Const a)] -- the [Ir.nop] statement (which does nothing) *)
 let join s1 s2 =
   match s1, s2 with
   | s1, Expr (Const _) -> s1
@@ -78,7 +77,8 @@ let (++) s1 s2 = join s1 s2
 
    [e1; e2; ESeq(s, e3)]
 
-   [s] must be pulled leftward past [e2] and [e1].
+   [s] must be pulled leftward past [e2] and [e1]
+   ([~~] is an operator for [commute])
 
    (0) If they all commute our [reorder] function will return
        [stmt, exprs] where:
@@ -86,7 +86,7 @@ let (++) s1 s2 = join s1 s2
        stmt  := s
        exprs := [e1; e2; e3]
 
-   (1) If [commute s e1 = true] and [commute s e2 = false]
+   (1) If [s ~~ e1 = true] and [s ~~ e2 = false]
 
           s e1 == e1 s
           s e2 <> e2 s
@@ -94,7 +94,7 @@ let (++) s1 s2 = join s1 s2
        stmt  := Seq(Move(t1, e1), Seq(Move(t2, e2), s))
        exprs := [Temp t1; Temp t2; e3]
 
-   (2) If [commute s e1 = false] and [commute s e2 = true]
+   (2) If [s ~~ e1 = false] and [s ~~ e2 = true]
 
           s e1 <> e1 s
           s e2 == e2 s
@@ -102,12 +102,38 @@ let (++) s1 s2 = join s1 s2
        stmt  := Seq(Move(t1, e1), s)
        exprs := [Temp t1; e2; e3]
 
-   (3) If all don't commute - same as (1) *)
-let rec reorder exprs =
-  (nop, exprs)
+   (3) If all don't commute - same as (1)
+
+   Moving calls to the top level:
+   -----------------------------
+
+   Each function returns its result in the same dedicated
+   return-value register [Frame.rv1]. Thus, if we have something like
+   [BinOp (Call ..., Plus, Call ...)] then the second call will
+   overwrite the [Frame.rv1] register before [Plus] can be executed.
+   The idea is to assign each return value immediately
+   into a fresh temporary register *)
+let rec reorder = function
+  | [] ->
+     (nop, [])
+  | (Call _ as e) :: es ->
+     let t = Temp.mk () in
+     (* This technique generates extra [Move] instructions,
+        which our register allocator can clean up (see chapter 11 of the Tiger-book) *)
+     reorder @@ ESeq (~*t <<< e, ~*t) :: es
+  | e :: es ->
+     let (s1, e1) = do_expr e in
+     let (s2, es) = reorder es in
+     if s2 <.> e
+     then
+       (s1 ++ s2, e1 :: es)
+     else
+       let t = Temp.mk () in
+       (s1 ++ (~*t <<< e1) ++ s2, ~*t :: es)
+
 (* Takes an [Ir.expr list] of subexpressions and a
    [build : Ir.expr list -> Ir.stmt] function.
-   It pulls all [Ir.ESeq]'s out of the [exprs],
+   It pulls all [Ir.ESeq]'s out of the [Ir.expr list],
    yielding a statement [s] that contains all the
    statements from the [Ir.ESeq]'s and a list [l] of
    cleaned-up expressions. Then it makes [Ir.Seq (s, build l)] *)

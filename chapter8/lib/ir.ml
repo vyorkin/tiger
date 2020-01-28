@@ -178,7 +178,7 @@ let rec seq = function
 
     Because [s] and [e] don't commute in the example above ([e] depends on [s]).
 
-    We cannot always tell if [Ir.stmt] and [Ir.expr] commute.
+    We cannot always tell if [stmt] and [expr] commute.
     For example, whether [Move(Mem(x), y)] commutes with [Mem(z)]
     depends on whether [x = z] (if we're modifying the same memory
     address then they don't commute), which we cannot always determine at
@@ -190,7 +190,6 @@ let rec seq = function
 
     (For more info see p.176 of the Tiger book) *)
 let commute s e =
-  let open Ir in
   match s, e with
   (* "Empty" statement commutes with any expression *)
   | Expr (Const _), _ -> true
@@ -200,3 +199,5 @@ let commute s e =
   | _, Const _ -> true
   (* Anything else is assumed not to commute *)
   | _, _ -> false
+
+let (<.>) s e = commute s e
