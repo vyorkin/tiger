@@ -149,8 +149,8 @@ let (++) s1 s2 = join s1 s2
    into a fresh temporary register *)
 
 (* [Ir.expr list -> (Ir.stmt * Ir.expr list)]
-   Reorders a give [Ir.expr list] by
-*)
+   Split a given [Ir.expr list] by pulling-out side-effectful
+   statements out of it and extracting a new cleaned-up expressions *)
 let rec reorder = function
   | [] ->
      (nop, [])
