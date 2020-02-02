@@ -248,16 +248,69 @@ let linearize stmt =
   let no_eseq = do_stmt stmt in
   linear (no_eseq, [])
 
-(* From a list of cleaned  statements (see the [linearize] function),
+let rec mk_blocks stmts acc ~done_label =
+  match stmts with
+  (* Whenever a [Label] is found, a new block is started *)
+  | Label _ as label :: rest ->
+     (* Iterates through the rest of [stmts] *)
+     let rec next stmts block =
+       match stmts with
+       (* Whenever [Jump] or [CJump] is found, a block
+          is ended (and the next block is started) *)
+       | (Jump _ as s) :: ss | (CJump _ as s) :: ss ->
+          end_block ss (s :: block)
+       (* Whenever a [Label] is found and the current block in not ended,
+          a new block should be started. Thus, we should append a new
+          [Jump] statement to the next block's label [l] *)
+       | Label l :: _ ->
+          let jump = ~:l <|~ [l] in
+          (* In the [next] iteration will see this new [Jump]
+             statement and call the [end_block] function *)
+          next (jump :: stmts) block
+       (* Whenever it is a regular statement, we add it to a current block *)
+       | s :: ss ->
+          next ss (s :: block)
+       (* No more statements left, so this is the last block.
+          When flow of the program reaches the end of the last block,
+          the epologue show follow. But it is inconvenient to have a
+          "special" block that must come last and that has no [Jump] at the end.
+          Thus, we put a [Jump] to the [done_label] at the end of the last block *)
+       | [] ->
+          let jump = ~:done_label <|~ [done_label] in
+          next [jump] block
+
+     (* Makes a new block, adds it to a list of
+        basic blocks that we're accumulating *)
+     and end_block stmts rest =
+       (* We build blocks by adding statements to the head,
+          so we have to reverse the list at the end *)
+       let block = List.rev rest in
+       mk_blocks stmts (block :: acc) ~done_label
+
+     in
+     next rest [label]
+  (* Nothing left to do. We were adding blocks to the
+     head of the list, so we have to reverse their order *)
+  | [] ->
+     List.rev acc
+  (* If any block has been left without a [Label],
+     a new label is invented an stuck there *)
+  | ss ->
+     let label = Temp.mk_label None in
+     mk_blocks (~|label :: ss) acc ~done_label
+
+(* From a list of cleaned statements (see the [linearize] function),
    produce a list of basic blocks satisfying the following properties:
    - Every block begins with a [Ir.Label]
    - A [Ir.Label] appears only at the beginning of a block
    - Any [Ir.Jump] or [Ir.CJump] is the last [Ir.stmt] in a block
    - Every block ends with a [Ir.Jump] or [Ir.CJump]
-   - Also produce the "label" to which control will be passed upon exit *)
+   - Also produce the [done_label] to which control will be passed upon exit *)
 let basic_blocks stmts =
-  let done_l = Temp.mk_label None in
-  (Temp.mk_label None, [])
+  (* A label to which control will be passed upon exit *)
+  let done_label = Temp.mk_label None in
+  let block_list = mk_blocks stmts [] ~done_label in
+  (done_label, block_list)
 
 (* From a list of basic blocks satisfying properties 1-6,
    along with an "exit" label, produce a list of stms such that:
