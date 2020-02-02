@@ -127,8 +127,10 @@ struct
                      endblock(rest, s :: thisblock)
                    | next((s as (T.CJUMP _)) :: rest, thisblock) =
                      endblock(rest, s :: thisblock)
+
                    | next(stms as (T.LABEL lab :: _), thisblock) =
                      next(T.JUMP(T.NAME lab, [lab]) :: stms, thisblock)
+
                    | next(s :: rest, thisblock) =
                      next(rest, s :: thisblock)
                    | next(nil, thisblock) =

@@ -312,10 +312,28 @@ let basic_blocks stmts =
   let block_list = mk_blocks stmts [] ~done_label in
   (done_label, block_list)
 
-(* From a list of basic blocks satisfying properties 1-6,
-   along with an "exit" label, produce a list of stms such that:
-   Every [Ir.CJump (_, t, f)] is immediately followed by [Ir.Label f].
-   The blocks are reordered to satisfy property 7; also
-   in this reordering as many JUMP(T.NAME(lab)) statements
-   as possible are eliminated by falling through into [Ir.Label lab]. *)
+(* The basic blocks can be arranged in any order, and the result
+   of executing the program will be the same - every block ends
+   with a jump to the appropriate place. We can take advantage of
+   this to choose an ordering of the blocks satisfying the condition
+   that each [Ir.CJump] is followed by its false label.
+
+   At the same time, we can also arrange that many of the unconditional
+   [Ir.Jump]'s are immediately followed by their target label. This will
+   allow the deletion of these jumps, which will make the compiled
+   program run a bit faster *)
+
+(* A trace is a sequence of statements that could be consecutively
+   executed during the execution of the program. It can include
+   conditional branches.
+
+   For our purposes each block must be in exactly one trace.
+   To minimize the number of [Ir.Jump]'s from one trace to another,
+   we would like to have as few traces as possible *)
+
+(* From a list of basic blocks produces a list of statements such that:
+   - Every [Ir.CJump { t; f; _ }] is immediately followed by [Ir.Label f].
+   - The blocks are reordered to satisfy the property mentioned above
+   - In this reordering as many [Ir.Jump (Name lab)] statements
+     as possible are eliminated by falling through into [Ir.Label lab] *)
 let trace_schedule (stmts, label) = []
