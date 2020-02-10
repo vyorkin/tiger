@@ -55,4 +55,4 @@ let enter_expr env expr =
 
 let enter_loop env =
   let l = Temp.mk_label None in
-  l, { env with break = Some l }
+  (l, { env with break = Some l })

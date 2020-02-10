@@ -1,6 +1,12 @@
+open Core_kernel
 open Ir
 
+module S = Symbol
+module ST = Symbol_table
 module L = List
+
+(* Block is a list of statements *)
+type block = stmt list
 
 (* There are certain aspects of the IR language that do not
    correspond exactly with machine languages, and some aspects
@@ -195,34 +201,34 @@ and do_stmt = function
   | Seq (s1, s2) ->
      do_stmt s1 ++ do_stmt s2
   | Jump (e, l) ->
-     reorder_stmt [e] (fun es -> L.hd es <|~ l)
+     reorder_stmt [e] (fun es -> L.hd_exn es <|~ l)
   | CJump { op; left; right; t; f } ->
      reorder_stmt [left; right]
-       (fun es -> CJump { op; left = L.hd es; right = L.(hd (tl es)); t; f})
+       (fun es -> CJump { op; left = L.hd_exn es; right = L.(hd_exn (tl_exn es)); t; f})
   | Move (Temp t, Call (name, args)) ->
      reorder_stmt (name :: args)
-       (fun es -> ~*t <<< Call (L.hd es, L.tl es))
+       (fun es -> ~*t <<< Call (L.hd_exn es, L.tl_exn es))
   | Move (Temp t, src) ->
-     reorder_stmt [src] (fun es -> ~*t <<< L.hd es)
+     reorder_stmt [src] (fun es -> ~*t <<< L.hd_exn es)
   | Move (Mem addr, e) ->
      reorder_stmt [addr; e]
-       (fun es -> ~@(L.hd es) <<< (L.(hd (tl es))))
+       (fun es -> ~@(L.hd_exn es) <<< (L.(hd_exn (tl_exn es))))
   | Move (ESeq (s, e1), e2) ->
      do_stmt (Seq (s, e1 <<< e2))
   | Expr (Call (name, args)) ->
      reorder_stmt (name :: args)
-       (fun es -> Expr (Call (L.hd es, L.tl es)))
+       (fun es -> Expr (Call (L.hd_exn es, L.tl_exn es)))
   | Expr e ->
-     reorder_stmt [e] (fun es -> Expr (L.hd es))
+     reorder_stmt [e] (fun es -> Expr (L.hd_exn es))
   | e ->
      reorder_stmt [] (fun _ -> e)
 
 and do_expr = function
   | BinOp (l, op, r) ->
      reorder_expr [l; r]
-       (fun es -> BinOp (L.hd es, op, L.(hd (tl es))))
+       (fun es -> BinOp (L.hd_exn es, op, L.(hd_exn (tl_exn es))))
   | Mem addr ->
-     reorder_expr [addr] (fun es -> ~@(L.hd es))
+     reorder_expr [addr] (fun es -> ~@(L.hd_exn es))
   | ESeq (s, e) ->
      (* Pull-out side-effectful statements out of [s] *)
      let s1 = do_stmt s in
@@ -233,7 +239,7 @@ and do_expr = function
      (s1 ++ s2, e')
   | Call (name, args) ->
      reorder_expr (name :: args)
-       (fun es -> Call (L.hd es, L.tl es))
+       (fun es -> Call (L.hd_exn es, L.tl_exn es))
   | e ->
      reorder_expr [] (fun _ -> e)
 
@@ -331,9 +337,47 @@ let basic_blocks stmts =
    To minimize the number of [Ir.Jump]'s from one trace to another,
    we would like to have as few traces as possible *)
 
+(* Helper function that is used to fill in a
+   symbol table of basic block labels *)
+let enter_block table = function
+  | Label s as l :: _ -> ST.add_label table s l
+  | _ -> table
+
+let rec trace ~table block label rest =
+  let table = ST.add_label table in
+  let head = L.hd_exn block in
+  let most = L.drop_last_exn block in
+  []
+
+and trace_next ~table = function
+  (* Head of the current block is [Label] *)
+  | (Label label :: _) as block :: rest ->
+     (* Let's see if this label is a beginning of a next basic block *)
+     (match ST.find_label table label with
+      | Some _ -> trace ~table block label rest
+      | None -> trace_next ~table rest)
+  | [] -> []
+  | _ -> failwith "Basic block does not start with a label"
+
 (* From a list of basic blocks produces a list of statements such that:
    - Every [Ir.CJump { t; f; _ }] is immediately followed by [Ir.Label f].
    - The blocks are reordered to satisfy the property mentioned above
    - In this reordering as many [Ir.Jump (Name lab)] statements
      as possible are eliminated by falling through into [Ir.Label lab] *)
-let trace_schedule (stmts, label) = []
+let trace_schedule (done_label, blocks) =
+  (* The algorithm:
+
+     Put all the blocks of the program into a list [Q].
+     while [Q] is not emtpy
+       Start a new (empty) trace [T].
+       Remove the head element b from [Q].
+  *)
+
+  (* First, we fill in a symbol table with labels
+     (each basic block starts with a label) *)
+  let init = ST.empty in
+  let table = List.fold_left blocks ~init ~f:enter_block in
+  (* Build trace *)
+  let result = trace_next ~table blocks in
+  (* Trace ends with a [done_label] to which control will be passed upon exit *)
+  result @ [~|done_label]

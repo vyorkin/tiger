@@ -20,12 +20,20 @@ type source =
 
 module SymbolTable = struct
   let src = Logs.Src.create "tig.symbol-table" ~doc:"Symbol table"
-  let trace op name sym =
-    Logs.debug ~src (fun m ->
-        m ~header:"symbol" "%s %s: %s" op name (S.to_string sym))
 
-  let bind name sym = trace "<==" name sym
-  let look name sym = trace "==>" name sym
+  let trace_loc op name sym =
+    Logs.debug ~src (fun m ->
+        m ~header:"symbol" "%s %s: %s" op name (S.to_string_loc sym))
+
+  let bind name sym = trace_loc "<==" name sym
+  let look name sym = trace_loc "==>" name sym
+
+  let trace_label op sym =
+    Logs.debug ~src (fun m ->
+        m ~header:"symbol" "%s: %s" op (S.to_string sym))
+
+  let add_label name  = trace_label "<|-" name
+  let find_label name = trace_label "-|>" name
 end
 
 module SemanticAnalysis = struct
@@ -182,16 +190,19 @@ module Escaping = struct
 end
 
 (* TODO: Report only enabled sources *)
-let mk_reporter cfg =
+let mk_reporter _cfg =
   let open Config in
   let app = Format.std_formatter in
   let dst = Format.err_formatter in
-  let report src level ~over k msgf =
+  let report _src (level : Logs.level) ~over k msgf =
     let k _ = over (); k () in
-    msgf @@ fun ?header ?tags fmt ->
+    msgf @@ fun ?header ?tags:__ fmt ->
     (* [ppf] is our pretty-printing formatter
        see https://ocaml.org/learn/tutorials/format.html#Most-general-pretty-printing-using-fprintf for deatils *)
-    let ppf = if level = Logs.App then app else dst in
+    let ppf = match level with
+      | Logs.App -> app
+      | _ -> dst
+    in
     Format.kfprintf k ppf ("%a@[" ^^ fmt ^^ "@]@.") Logs_fmt.pp_header (level, header)
   in
   { Logs.report = report }

@@ -27,7 +27,9 @@ type ventry =
   | FunEntry of fun_entry
 [@@deriving show]
 
+(** Term-level environment / symbol table *)
 type venv = ventry ST.t
+(** Type-level environment / symbol table *)
 type tenv = T.t ST.t
 
 type t = {

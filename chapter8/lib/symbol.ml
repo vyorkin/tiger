@@ -29,5 +29,7 @@ let mk_unique name =
   { name; id = next_id () }
 
 let to_string s =
-  sprintf "%s <#%d> %s"
-    s.L.value.name s.L.value.id (L.range_string s.L.loc)
+  sprintf "%s <#%d>" s.name s.id
+
+let to_string_loc s =
+  sprintf "%s %s" (to_string s.L.value) (L.range_string s.L.loc)

@@ -2,9 +2,9 @@
     that is temporarily held in a register *)
 type t [@@deriving show]
 
-(** Abstract name for a static memory address that
-    is yet to be determined *)
-type label [@@deriving show]
+(** Abstract name for a static memory address
+    that is yet to be determined *)
+type label = Symbol.t [@@deriving show]
 
 (** Returns a new temporary from
     an infinite set of temporaries *)

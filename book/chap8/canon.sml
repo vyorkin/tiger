@@ -155,12 +155,12 @@ struct
 
   fun trace(table,b as (T.LABEL lab :: _),rest) =
    let val table = Symbol.enter(table, lab, nil)
-    in case splitlast b
-     of (most,T.JUMP(T.NAME lab, _)) =>
+   in case splitlast b of
+   (most,T.JUMP(T.NAME lab, _)) =>
 	  (case Symbol.look(table, lab)
             of SOME(b' as _::_) => most @ trace(table, b', rest)
 	     | _ => b @ getnext(table,rest))
-      | (most,T.CJUMP(opr,x,y,t,f)) =>
+ | (most,T.CJUMP(opr,x,y,t,f)) =>
           (case (Symbol.look(table,t), Symbol.look(table,f))
             of (_, SOME(b' as _::_)) => b @ trace(table, b', rest)
              | (SOME(b' as _::_), _) =>
@@ -171,7 +171,7 @@ struct
 				T.LABEL f', T.JUMP(T.NAME f,[f])]
 			     @ getnext(table,rest)
                         end)
-      | (most, T.JUMP _) => b @ getnext(table,rest)
+ | (most, T.JUMP _) => b @ getnext(table,rest)
      end
 
   and getnext(table,(b as (T.LABEL lab::_))::rest) =

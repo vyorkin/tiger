@@ -9,16 +9,19 @@ type entry =
   | Var
   | Fun
   | Typ
+  | Lab
 
 let entry_abbr = function
   | Var -> "var"
   | Fun -> "fun"
   | Typ -> "typ"
+  | Lab -> "lab"
 
 let entry_string = function
   | Var -> "variable"
   | Fun -> "function"
   | Typ -> "type"
+  | Lab -> "label"
 
 let not_found name sym v =
   let msg = Printf.sprintf "Unknown %s: %s" name v in
@@ -42,3 +45,14 @@ let look_typ e s = look Typ e s
 let bind_var e s v = bind Var e s v
 let bind_fun e s v = bind Fun e s v
 let bind_typ e s v = bind Typ e s v
+
+(* We use the [find_exn] and [add_exn] functions
+   here for additional safety *)
+
+let find_label table key =
+  Trace.SymbolTable.find_label key;
+  find table key
+
+let add_label table key data =
+  Trace.SymbolTable.add_label key;
+  add_exn table ~key ~data
