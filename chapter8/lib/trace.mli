@@ -8,12 +8,14 @@ module SymbolTable : sig
 
   (** Trace new binding *)
   val bind : string -> S.t L.t -> unit
+end
 
-  (** Trace label lookup *)
-  val find_label : S.t -> unit
+module Canon : sig
+  (** Trace block lookup *)
+  val find_block : S.t -> unit
 
-  (** Trace of adding a new label *)
-  val add_label : S.t -> unit
+  (** Trace of adding a new block *)
+  val add_block : S.t -> unit
 end
 
 module SemanticAnalysis : sig

@@ -5,6 +5,9 @@ module S = Symbol
 module ST = Symbol_table
 module L = List
 
+(* Map to store basic blocks (where key is a corresponding label) *)
+module BlockMap = Map.Make (Symbol)
+
 (* Block is a list of statements *)
 type block = stmt list
 
@@ -337,24 +340,107 @@ let basic_blocks stmts =
    To minimize the number of [Jump]'s from one trace to another,
    we would like to have as few traces as possible *)
 
-(* Helper function that is used to fill in a
-   symbol table of basic block labels *)
+(* Helper functions for managing blocks + tracing.
+   We use the [find_exn] and [add_exn] functions here for additional safety *)
+
+(** Lookup a value with the given key in symbol table *)
+let find_block table key = (* 'a t -> Key.t -> 'a option *)
+  Trace.Canon.find_block key;
+  BlockMap.find table key
+
+(** Add a new label to the symbol table **)
+let add_block table key data = (* 'a t -> Key.t -> 'a -> 'a t *)
+  Trace.Canon.add_block key;
+  BlockMap.add_exn table ~key ~data
+
+(* Helper function that is used to
+   fill-in a symbol table of basic blocks *)
 let enter_block table = function
-  | Label s as l :: _ -> ST.add_label table s l
+  (* Each basic block starts with a label *)
+  | (Label s :: _) as b -> add_block table s b
   | _ -> table
 
+(*
+   * [table] - contains all the basic blocks
+   * [block] - a basic block that we're currently analyzing
+   * [label] - a beginning of the [block]
+   * [rest]  - remaining blocks (basic blocks left to analyze)
+*)
 let rec trace ~table block label rest =
-  let table = ST.add_label table in
-  let head = L.hd_exn block in
+  (* Start a new (empty) trace *)
+  let table = add_block table label [] in
+  (* Get all [stmt]'s of the basic block except the last one *)
   let most = L.drop_last_exn block in
-  []
+  (* Let's look at the last [stmt] *)
+  match L.last_exn block with
+  (* Unconditional jump to some [label'] *)
+  | Jump (Name label', _) ->
+     (* Lookup the corresponding basic block
+        (one that starts with [label']) *)
+     (match find_block table label' with
+      (* If it is not empty *)
+      | Some ((_ :: _) as block') ->
+         (* Skip the jump and just concat/join the previous
+            statements with the statements we get by building a
+            trace for the [block'] and the [rest] of blocks *)
+         most @ trace ~table block' label rest
+      (* If it is an empty basic block
+         (or if it doesn't exist in our [table] which
+         means it is a jump to some unknown label/address) *)
+      | _ ->
+         (* Just leave it as is and continue building our trace *)
+         (* TODO: We might want to handle the [None] case
+                  and [failWith "Destination label doesn't exists"] *)
+         block @ trace_next ~table rest)
+  (* If the last [stmt] of the current basic block is a conditional jump *)
+  | CJump { op; left; right; t; f; } ->
+     let t_block = find_block table t in
+     let f_block = find_block table f in
+     (match t_block, f_block with
+      (* If the basic block of the false-branch is not empty
+         (note that we consider the false-branch first) *)
+      | _, Some ((_::_) as block') ->
+         (* Concat/join statements of the current block
+            (that ends with a [CJump] statement) with the statements
+            we get by building trace for basic block of the
+            false-branch and the [rest] of blocks *)
+         block @ trace ~table block' label rest
+      (* If the false-branch of [CJump] is empty (or doesn't exist,
+         which I think should result in error) *)
+      | Some ((_::_) as block'), _ ->
+         (* We switch the [true] and [false] labels and negate the condition *)
+         let inv_cjump = CJump { op = not_rel op; left; right; t; f } in
+         most @ [inv_cjump] @ trace ~table block' label rest
+      (*  *)
+      | _, _ ->
+         (* We invent a new false-label [l] and rewrite the
+            single [CJump] statemtnt as three statements to achieve the
+            condition that the [CJump] is followed by its false-label *)
+         let l = Temp.mk_label None in
+         let stmts =
+           [ CJump { left; op; right; f = t; t = f }
+           ; ~|l
+           ; ~:l <|~ [l]
+           ] in
+         most @ stmts @ trace_next ~table rest
+     )
+  (* Unconditional jump to some destination which
+     is represented by some [expr] other name [Name] *)
+  | Jump _ ->
+     block @ trace_next ~table rest
+  | _ ->
+     failwith "Basic block does not end with conditional or unconditional jump statement"
 
+(* Starts with some basic block and follows a chain of jumps,
+   marking each block and appending it to the trace *)
 and trace_next ~table = function
-  (* Head of the current block is [Label] *)
+  (* Head of the head/current block is [Label] *)
   | (Label label :: _) as block :: rest ->
-     (* Let's see if this label is a beginning of a next basic block *)
-     (match ST.find_label table label with
+     (* If this label is a beginning of basic block *)
+     (match find_block table label with
+      (* Yes - Build a trace *)
       | Some _ -> trace ~table block label rest
+      (* No - keep looking for a beginning of basic block *)
       | None -> trace_next ~table rest)
   | [] -> []
   | _ -> failwith "Basic block does not start with a label"
@@ -363,25 +449,24 @@ and trace_next ~table = function
    - Every [CJump { t; f; _ }] is immediately followed by [Label f].
    - The blocks are reordered to satisfy the property mentioned above
    - In this reordering as many [Jump (Name lab)] statements
-     as possible are eliminated by falling through into [Label lab] *)
-let trace_schedule (done_label, blocks) =
-  (* The algorithm:
+     as possible are eliminated by falling through into [Label lab].
+
+     The algorithm:
+     --------------
 
      Put all the blocks of the program into a list [Q].
      while [Q] is not emtpy:
        - Start a new (empty) trace [T].
-       - Remove the head element [b] from [Q].
+       - Remove the head block [b] from [Q].
        - While [b] is not marked:
-         - Mark [b] and it to the end of the current trace [T]
+         - Mark [b] and append it to the end of the current trace [T]
          - Examine the successors of [b] (the blocks to which [b] branches)
          - If there is any unmarked successor [c]:
            [b <- c]
-      End the current trace [T].
-  *)
-
-  (* First, we fill-in a symbol table with labels
-     (each basic block starts with a label) *)
-  let init = ST.empty in
+      End the current trace [T] *)
+let trace_schedule (done_label, blocks) =
+  (* Fill-in a table of labels and their corresponding basic blocks *)
+  let init = BlockMap.empty in
   let table = List.fold_left blocks ~init ~f:enter_block in
   (* Build trace *)
   let result = trace_next ~table blocks in

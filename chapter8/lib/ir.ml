@@ -90,7 +90,7 @@ and relop =
   | Ult | Ule | Ugt | Uge
 [@@deriving show { with_path = false }]
 
-(** Make a [binop] out of a [Syntax.op] *)
+(** Makes a [binop] out of a [Syntax.op] *)
 let binop_of_op = function
   | Sy.Plus -> Plus
   | Sy.Minus -> Minus
@@ -100,7 +100,7 @@ let binop_of_op = function
     "Invalid integer arithmetic operator: " ^
     (Syntax_printer.print_op_sym op)
 
-(** Make a [relop] out of a [Syntax.op] *)
+(** Makes a [relop] out of a [Syntax.op] *)
 let relop_of_op = function
   | Sy.Ge -> Ge
   | Sy.Gt -> Gt
@@ -111,6 +111,19 @@ let relop_of_op = function
   | op -> failwith @@
     "Invalid relational operator: " ^
     (Syntax_printer.print_op_sym op)
+
+(** Inverses given relational operator *)
+let not_rel = function
+  | Eq -> Ne
+  | Ne -> Eq
+  | Lt -> Ge
+  | Ge -> Lt
+  | Gt -> Le
+  | Le -> Gt
+  | Ult -> Uge
+  | Uge -> Ult
+  | Ule -> Ugt
+  | Ugt -> Ule
 
 (* Helper operators to simplify
    construction of complex IR expressions *)
@@ -158,7 +171,7 @@ let indexed e i w = ~@(~@e |+| (i |*| ~$w))
 let cjump left op right t f =
   CJump { op = relop_of_op op; left; right; t; f }
 
-(** When there are no [Ir.ESeq]'s we will use
+(** When there are no [ESeq]'s we will use
     this [nop] statement (which does nothing) *)
 let nop = Expr ~$0
 

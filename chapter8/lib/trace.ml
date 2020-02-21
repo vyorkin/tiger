@@ -27,13 +27,17 @@ module SymbolTable = struct
 
   let bind name sym = trace_loc "<==" name sym
   let look name sym = trace_loc "==>" name sym
+end
 
-  let trace_label op sym =
+module Canon = struct
+  let src = Logs.Src.create "tig.canon" ~doc:"Canon"
+
+  let trace op sym =
     Logs.debug ~src (fun m ->
-        m ~header:"symbol" "%s: %s" op (S.to_string sym))
+        m ~header:"canon" "%s: %s" op (S.to_string sym))
 
-  let add_label name  = trace_label "<|-" name
-  let find_label name = trace_label "-|>" name
+  let add_block name  = trace "<|-" name
+  let find_block name = trace "-|>" name
 end
 
 module SemanticAnalysis = struct
