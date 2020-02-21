@@ -343,32 +343,32 @@ let basic_blocks stmts =
 (* Helper functions for managing blocks + tracing.
    We use the [find_exn] and [add_exn] functions here for additional safety *)
 
-(** Lookup a value with the given key in symbol table *)
-let find_block table key = (* 'a t -> Key.t -> 'a option *)
+(** Lookup a basic with the given key in the map *)
+let find_block map key = (* 'a t -> Key.t -> 'a option *)
   Trace.Canon.find_block key;
-  BlockMap.find table key
+  BlockMap.find map key
 
-(** Add a new label to the symbol table **)
-let add_block table key data = (* 'a t -> Key.t -> 'a -> 'a t *)
+(** Add a new block to the map **)
+let add_block map key data = (* 'a t -> Key.t -> 'a -> 'a t *)
   Trace.Canon.add_block key;
-  BlockMap.add_exn table ~key ~data
+  BlockMap.add_exn map ~key ~data
 
 (* Helper function that is used to
-   fill-in a symbol table of basic blocks *)
-let enter_block table = function
+   fill-in a symbol map of basic blocks *)
+let enter_block map = function
   (* Each basic block starts with a label *)
-  | (Label s :: _) as b -> add_block table s b
-  | _ -> table
+  | (Label s :: _) as b -> add_block map s b
+  | _ -> map
 
 (*
-   * [table] - contains all the basic blocks
+   * [map] - contains all the basic blocks
    * [block] - a basic block that we're currently analyzing
    * [label] - a beginning of the [block]
    * [rest]  - remaining blocks (basic blocks left to analyze)
 *)
-let rec trace ~table block label rest =
+let rec trace ~map block label rest =
   (* Start a new (empty) trace *)
-  let table = add_block table label [] in
+  let map = add_block map label [] in
   (* Get all [stmt]'s of the basic block except the last one *)
   let most = L.drop_last_exn block in
   (* Let's look at the last [stmt] *)
@@ -377,25 +377,25 @@ let rec trace ~table block label rest =
   | Jump (Name label', _) ->
      (* Lookup the corresponding basic block
         (one that starts with [label']) *)
-     (match find_block table label' with
+     (match find_block map label' with
       (* If it is not empty *)
       | Some ((_ :: _) as block') ->
          (* Skip the jump and just concat/join the previous
             statements with the statements we get by building a
             trace for the [block'] and the [rest] of blocks *)
-         most @ trace ~table block' label rest
+         most @ trace ~map block' label rest
       (* If it is an empty basic block
-         (or if it doesn't exist in our [table] which
+         (or if it doesn't exist in our [map] which
          means it is a jump to some unknown label/address) *)
       | _ ->
          (* Just leave it as is and continue building our trace *)
          (* TODO: We might want to handle the [None] case
                   and [failWith "Destination label doesn't exists"] *)
-         block @ trace_next ~table rest)
+         block @ trace_next ~map rest)
   (* If the last [stmt] of the current basic block is a conditional jump *)
   | CJump { op; left; right; t; f; } ->
-     let t_block = find_block table t in
-     let f_block = find_block table f in
+     let t_block = find_block map t in
+     let f_block = find_block map f in
      (match t_block, f_block with
       (* If the basic block of the false-branch is not empty
          (note that we consider the false-branch first) *)
@@ -404,13 +404,13 @@ let rec trace ~table block label rest =
             (that ends with a [CJump] statement) with the statements
             we get by building trace for basic block of the
             false-branch and the [rest] of blocks *)
-         block @ trace ~table block' label rest
+         block @ trace ~map block' label rest
       (* If the false-branch of [CJump] is empty (or doesn't exist,
          which I think should result in error) *)
       | Some ((_::_) as block'), _ ->
          (* We switch the [true] and [false] labels and negate the condition *)
          let inv_cjump = CJump { op = not_rel op; left; right; t; f } in
-         most @ [inv_cjump] @ trace ~table block' label rest
+         most @ [inv_cjump] @ trace ~map block' label rest
       (*  *)
       | _, _ ->
          (* We invent a new false-label [l] and rewrite the
@@ -422,26 +422,26 @@ let rec trace ~table block label rest =
            ; ~|l
            ; ~:l <|~ [l]
            ] in
-         most @ stmts @ trace_next ~table rest
+         most @ stmts @ trace_next ~map rest
      )
   (* Unconditional jump to some destination which
      is represented by some [expr] other name [Name] *)
   | Jump _ ->
-     block @ trace_next ~table rest
+     block @ trace_next ~map rest
   | _ ->
      failwith "Basic block does not end with conditional or unconditional jump statement"
 
 (* Starts with some basic block and follows a chain of jumps,
    marking each block and appending it to the trace *)
-and trace_next ~table = function
+and trace_next ~map = function
   (* Head of the head/current block is [Label] *)
   | (Label label :: _) as block :: rest ->
      (* If this label is a beginning of basic block *)
-     (match find_block table label with
+     (match find_block map label with
       (* Yes - Build a trace *)
-      | Some _ -> trace ~table block label rest
+      | Some _ -> trace ~map block label rest
       (* No - keep looking for a beginning of basic block *)
-      | None -> trace_next ~table rest)
+      | None -> trace_next ~map rest)
   | [] -> []
   | _ -> failwith "Basic block does not start with a label"
 
@@ -465,10 +465,10 @@ and trace_next ~table = function
            [b <- c]
       End the current trace [T] *)
 let trace_schedule (done_label, blocks) =
-  (* Fill-in a table of labels and their corresponding basic blocks *)
+  (* Fill-in a map of labels and their corresponding basic blocks *)
   let init = BlockMap.empty in
-  let table = List.fold_left blocks ~init ~f:enter_block in
+  let map = List.fold_left blocks ~init ~f:enter_block in
   (* Build trace *)
-  let result = trace_next ~table blocks in
+  let result = trace_next ~map blocks in
   (* Trace ends with a [done_label] to which control will be passed upon exit *)
   result @ [~|done_label]
