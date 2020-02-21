@@ -1,9 +1,6 @@
-/* define valid recursive types */
 let
-/* define a list */
 type intlist = {hd: int, tl: intlist} 
 
-/* define a tree */
 type tree ={key: int, children: treelist}
 type treelist = {hd: tree, tl: treelist}
 

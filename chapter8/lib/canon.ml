@@ -22,31 +22,31 @@ type block = stmt list
    - Call (name_expr, args_expr_list)
    - ESeq (stmt, result_expr)
 
-   But the subexpressions of [Ir.expr] can contain side effects:
-   [Ir.ESeq] and [Ir.Call] nodes that contain assignment statements and
+   But the subexpressions of [expr] can contain side effects:
+   [ESeq] and [Call] nodes that contain assignment statements and
    perform input/output. If IR expressions did not contain
-   [Ir.ESeq] and [Ir.Call] nodes, then the order of evaluation would not matter.
+   [ESeq] and [Call] nodes, then the order of evaluation would not matter.
 
-   How to eliminate [Ir.ESeq] nodes?
-   The idea is to lift [Ir.ESeq] nodes higher and higher in
-   the tree, until they can become [Ir.Seq] nodes.
+   How to eliminate [ESeq] nodes?
+   The idea is to lift [ESeq] nodes higher and higher in
+   the tree, until they can become [Seq] nodes.
 
-   For each kind of [Ir.stmt] or [Ir.expr] we can identify
+   For each kind of [stmt] or [expr] we can identify
    the subexpressions and apply rewriting rules to them.
 
    The transformation is done in 3 stages:
 
    1. Linearize:
-      [Ir.stmt] is rewritten into a list of canonical trees [Ir.stmt list] without
-      [Ir.Seq (s1, s2) : Ir.stmt] or [Ir.ESeq (s, e) : Ir.stmt] nodes.
+      [stmt] is rewritten into a list of canonical trees [stmt list] without
+      [Seq (s1, s2) : stmt] or [ESeq (s, e) : stmt] nodes.
 
    2. Basic blocks:
-      The [Ir.stmt list] is groupped into a set [Ir.stmt list] of basic blocks,
+      The [stmt list] is groupped into a set [stmt list] of basic blocks,
       which contain no internal jumps or labels (sequences of straight-line code).
 
    3. Trace schedule:
-      Resulting basic blocks [(Ir.stmt list) list] are ordered into a set of
-      traces (in which [Ir.CJump] is followed by its [false] label). *)
+      Resulting basic blocks [(stmt list) list] are ordered into a set of
+      traces (in which [CJump] is followed by its [false] label). *)
 
 (* Checks if the given statement [s] and expression [e] commute.
    Commute means that we can change the order of the evaluation of [s] and [e].
@@ -80,10 +80,10 @@ let commute s e =
   (* Anything else is assumed not to commute *)
   | _, _ -> false
 
-let (<.>) s e = commute s e
+let (<-->) s e = commute s e
 
 (* Joins two statements [s1] and [s2] ignoring any side-effect-only statements that
-   look like [Expr (Const a)] -- the [Ir.nop] statement (which does nothing) *)
+   look like [Expr (Const a)] -- the [nop] statement (which does nothing) *)
 let join s1 s2 =
   match s1, s2 with
   | s1, Expr (Const _) -> s1
@@ -92,13 +92,13 @@ let join s1 s2 =
 
 let (++) s1 s2 = join s1 s2
 
-(* Takes a [Ir.expr list] and returns a [(Ir.stmt, Ir.expr list)].
-   The first element [Ir.stmt] contains all the things that
-   must be executed before the expression list [Ir.expr list].
-   This includes all the statement-parts of the [Ir.ESeq]'s, as well
+(* Takes a [expr list] and returns a [(stmt, expr list)].
+   The first element [stmt] contains all the things that
+   must be executed before the expression list [expr list].
+   This includes all the statement-parts of the [ESeq]'s, as well
    as any expressions to their left with which they did not commute.
 
-   Remember, if [Ir.stmt] and [Ir.expr] don't "commute" then we
+   Remember, if [stmt] and [expr] don't "commute" then we
    can't change the order of their evaluation.
 
    Examples:
@@ -143,10 +143,10 @@ let (++) s1 s2 = join s1 s2
    The idea is to assign each return value immediately
    into a fresh temporary register *)
 
-(* Split a given [Ir.expr list] by pulling-out side-effectful
+(* Split a given [expr list] by pulling-out side-effectful
    statements out of it and extracting a new cleaned-up expressions
 
-  [Ir.expr list -> (Ir.stmt * Ir.expr list)] *)
+  [expr list -> (stmt * expr list)] *)
 let rec reorder = function
   | [] ->
      (nop, [])
@@ -166,7 +166,7 @@ let rec reorder = function
      let (s2, es') = reorder es in
      (* If (all the side-effectful statements in) [s2] and our cleaned-up "head" expression
         [e1] commute (which means that we can change the order of their evaluation) *)
-     if s2 <.> e1
+     if s2 <--> e1
      then
        (* Then we can [join] our side-effectful statements
           and the cleaned-up expressions *)
@@ -179,20 +179,20 @@ let rec reorder = function
        let t = Temp.mk () in
        (s1 ++ (~*t <<< e1) ++ s2, ~*t :: es)
 
-(* Takes an [Ir.expr list] of subexpressions and a
-   [build : Ir.expr list -> Ir.stmt] function that
+(* Takes an [expr list] of subexpressions and a
+   [build : expr list -> stmt] function that
    constructs a resulting cleaned-up expression.
-   It pulls all [Ir.ESeq]'s out of the [Ir.expr list],
+   It pulls all [ESeq]'s out of the [expr list],
    yielding a statement [s] that contains all the statements
-   from the [Ir.ESeq]'s and a list [l] of cleaned-up expressions.
-   Then it [join]'s them by making an [Ir.Seq (s, build l)] *)
+   from the [ESeq]'s and a list [l] of cleaned-up expressions.
+   Then it [join]'s them by making an [Seq (s, build l)] *)
 and reorder_stmt exprs build =
   let (s, l) = reorder exprs in
   s ++ build l
 
-(* Same thing, but returns a pair [(Ir.stmt, Ir.expr)], where
+(* Same thing, but returns a pair [(stmt, expr)], where
    the first element is a statement containing all the side-effects
-   pulled out of [Ir.expr list] and the second one is [build l] *)
+   pulled out of [expr list] and the second one is [build l] *)
 and reorder_expr exprs build =
   let (s, l) = reorder exprs in
   (s, build l)
@@ -243,10 +243,10 @@ and do_expr = function
   | e ->
      reorder_expr [] (fun _ -> e)
 
-(* From an arbitrary [Ir.stmt] statement, produce an [Ir.stmt list] of
+(* From an arbitrary [stmt] statement, produce an [stmt list] of
    cleaned statements satisfying the following properties:
-	 - No [Ir.Seq]'s or [Ir.ESeq]'s
-	 - The parent of every [Ir.Call] is an [Ir.Exp] or a [Ir.Move (Ir.Temp t, ...)] *)
+	 - No [Seq]'s or [ESeq]'s
+	 - The parent of every [Call] is an [Exp] or a [Move (Temp t, ...)] *)
 let linearize stmt =
   let rec linear = function
     | Seq (s1, s2), ss -> linear (s1, linear (s2, ss))
@@ -307,10 +307,10 @@ let rec mk_blocks stmts acc ~done_label =
 
 (* From a list of cleaned statements (see the [linearize] function),
    produce a list of basic blocks satisfying the following properties:
-   - Every block begins with a [Ir.Label]
-   - A [Ir.Label] appears only at the beginning of a block
-   - Any [Ir.Jump] or [Ir.CJump] is the last [Ir.stmt] in a block
-   - Every block ends with a [Ir.Jump] or [Ir.CJump]
+   - Every block begins with a [Label]
+   - A [Label] appears only at the beginning of a block
+   - Any [Jump] or [CJump] is the last [stmt] in a block
+   - Every block ends with a [Jump] or [CJump]
    - Also produce the [done_label] to which control will be passed upon exit *)
 let basic_blocks stmts =
   (* A label to which control will be passed upon exit *)
@@ -322,10 +322,10 @@ let basic_blocks stmts =
    of executing the program will be the same - every block ends
    with a jump to the appropriate place. We can take advantage of
    this to choose an ordering of the blocks satisfying the condition
-   that each [Ir.CJump] is followed by its false label.
+   that each [CJump] is followed by its false label.
 
    At the same time, we can also arrange that many of the unconditional
-   [Ir.Jump]'s are immediately followed by their target label. This will
+   [Jump]'s are immediately followed by their target label. This will
    allow the deletion of these jumps, which will make the compiled
    program run a bit faster *)
 
@@ -334,7 +334,7 @@ let basic_blocks stmts =
    conditional branches.
 
    For our purposes each block must be in exactly one trace.
-   To minimize the number of [Ir.Jump]'s from one trace to another,
+   To minimize the number of [Jump]'s from one trace to another,
    we would like to have as few traces as possible *)
 
 (* Helper function that is used to fill in a
@@ -360,20 +360,26 @@ and trace_next ~table = function
   | _ -> failwith "Basic block does not start with a label"
 
 (* From a list of basic blocks produces a list of statements such that:
-   - Every [Ir.CJump { t; f; _ }] is immediately followed by [Ir.Label f].
+   - Every [CJump { t; f; _ }] is immediately followed by [Label f].
    - The blocks are reordered to satisfy the property mentioned above
-   - In this reordering as many [Ir.Jump (Name lab)] statements
-     as possible are eliminated by falling through into [Ir.Label lab] *)
+   - In this reordering as many [Jump (Name lab)] statements
+     as possible are eliminated by falling through into [Label lab] *)
 let trace_schedule (done_label, blocks) =
   (* The algorithm:
 
      Put all the blocks of the program into a list [Q].
-     while [Q] is not emtpy
-       Start a new (empty) trace [T].
-       Remove the head element b from [Q].
+     while [Q] is not emtpy:
+       - Start a new (empty) trace [T].
+       - Remove the head element [b] from [Q].
+       - While [b] is not marked:
+         - Mark [b] and it to the end of the current trace [T]
+         - Examine the successors of [b] (the blocks to which [b] branches)
+         - If there is any unmarked successor [c]:
+           [b <- c]
+      End the current trace [T].
   *)
 
-  (* First, we fill in a symbol table with labels
+  (* First, we fill-in a symbol table with labels
      (each basic block starts with a label) *)
   let init = ST.empty in
   let table = List.fold_left blocks ~init ~f:enter_block in
