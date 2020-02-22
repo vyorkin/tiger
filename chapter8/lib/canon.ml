@@ -248,8 +248,8 @@ and do_expr = function
 
 (* From an arbitrary [stmt] statement, produce an [stmt list] of
    cleaned statements satisfying the following properties:
-	 - No [Seq]'s or [ESeq]'s
-	 - The parent of every [Call] is an [Exp] or a [Move (Temp t, ...)] *)
+   - No [Seq]'s or [ESeq]'s
+   - The parent of every [Call] is an [Exp] or a [Move (Temp t, ...)] *)
 let linearize stmt =
   let rec linear = function
     | Seq (s1, s2), ss -> linear (s1, linear (s2, ss))
@@ -297,7 +297,9 @@ let rec mk_blocks stmts acc ~done_label =
        mk_blocks stmts (block :: acc) ~done_label
 
      in
-     next rest [label]
+     (* A new block starts with the [label] we've found *)
+     let new_block = [label] in
+     next rest new_block
   (* Nothing left to do. We were adding blocks to the
      head of the list, so we have to reverse their order *)
   | [] ->

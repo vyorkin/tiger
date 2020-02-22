@@ -2,14 +2,30 @@ open Core
 
 open Ch8
 
+let process_fragment frag =
+  let out = Fragment.print frag in
+  print_endline out;
+  match frag with
+  | Proc { body; frame } ->
+     let pure = Ir_printer.print_stmt body in
+     let linearized = Canon.linearize body in
+     let fid = Frame.id frame in
+     print_endline @@ sprintf "\nFrame %d body:\n\n%s" fid pure;
+     print_endline @@ sprintf "\nFrame %d linearized:\n" fid;
+     List.iteri linearized ~f:(fun i stmt ->
+         let out = Ir_printer.print_stmt stmt in
+         print_endline @@ sprintf "%d:\n\n%s\n" i out
+       )
+  | String _ ->
+     ()
+
 let tiger lexbuf =
   let expr = Parser.main Lexer.read lexbuf in
   Escape.traverse_prog expr;
+  print_endline "\nFragments:\n\n";
   expr
   |> Semant.trans_prog
-  |> List.map ~f:Fragment.print
-  |> String.concat ~sep:"\n"
-  |> printf "\nFragments:\n\n%s\n"
+  |> List.iter ~f:process_fragment
 
 let run_tiger fn ch =
   let open Printf in
