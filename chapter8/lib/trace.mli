@@ -14,8 +14,8 @@ module Canon : sig
   (** Trace block lookup *)
   val find_block : S.t -> unit
 
-  (** Trace of adding a new block *)
-  val add_block : S.t -> unit
+  (** Trace setting a new block *)
+  val set_block : S.t -> unit
 end
 
 module SemanticAnalysis : sig

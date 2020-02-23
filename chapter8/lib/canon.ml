@@ -380,8 +380,8 @@ let find_block map key = (* 'a t -> Key.t -> 'a option *)
 
 (** Add a new block to the map **)
 let add_block map key data = (* 'a t -> Key.t -> 'a -> 'a t *)
-  Trace.Canon.add_block key;
-  BlockMap.add_exn map ~key ~data
+  Trace.Canon.set_block key;
+  BlockMap.set map ~key ~data
 
 (* Helper function that is used to
    fill-in a symbol map of basic blocks *)

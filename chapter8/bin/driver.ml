@@ -14,7 +14,21 @@ let process_fragment frag =
      print_endline @@ sprintf "\nFrame %d linearized:\n" fid;
      List.iteri linearized ~f:(fun i stmt ->
          let out = Ir_printer.print_stmt stmt in
-         print_endline @@ sprintf "%d:\n%s\n" i out
+         print_endline @@ sprintf "%d -----------------\n%s\n" i out
+       );
+     let (label, blocks) = Canon.basic_blocks linearized in
+     print_endline @@ sprintf "\nFrame %d basic blocks (label %s):\n" fid (Temp.print_label label);
+     List.iteri blocks ~f:(fun bi block ->
+         print_endline @@ sprintf "%d =================\n" bi;
+         List.iteri block ~f:(fun si stmt ->
+             let out = Ir_printer.print_stmt stmt in
+             print_endline @@ sprintf "%d:\n%s\n" si out
+       ));
+     let trace = Canon.trace_schedule (label, blocks) in
+     print_endline @@ sprintf "\nFrame %d trace (label %s):\n" fid (Temp.print_label label);
+     List.iteri trace ~f:(fun i stmt ->
+         let out = Ir_printer.print_stmt stmt in
+         print_endline @@ sprintf "%d >>>>>>>>>>>>>>>>>\n%s\n" i out
        )
   | String _ ->
      ()

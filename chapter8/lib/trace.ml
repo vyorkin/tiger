@@ -36,8 +36,8 @@ module Canon = struct
     Logs.debug ~src (fun m ->
         m ~header:"canon" "%s: %s" op (S.to_string sym))
 
-  let add_block name  = trace "<|-" name
-  let find_block name = trace "-|>" name
+  let set_block name  = trace "<<-" name
+  let find_block name = trace "->>" name
 end
 
 module SemanticAnalysis = struct
