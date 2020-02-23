@@ -14,7 +14,7 @@ let process_fragment frag =
      print_endline @@ sprintf "\nFrame %d linearized:\n" fid;
      List.iteri linearized ~f:(fun i stmt ->
          let out = Ir_printer.print_stmt stmt in
-         print_endline @@ sprintf "%d:\n\n%s\n" i out
+         print_endline @@ sprintf "%d:\n%s\n" i out
        )
   | String _ ->
      ()

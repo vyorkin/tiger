@@ -180,7 +180,7 @@ let rec reorder = function
           add another [Move] statement between the [s1] and [s2] that
           assigns [e1] to a new temporary [t] *)
        let t = Temp.mk () in
-       (s1 ++ (~*t <<< e1) ++ s2, ~*t :: es)
+       (s1 ++ (~*t <<< e1) ++ s2, ~*t :: es')
 
 (* Takes an [expr list] of subexpressions and a
    [build : expr list -> stmt] function that
@@ -253,23 +253,13 @@ let%expect_test "reorder empty" =
 
 let%expect_test "reorder call" =
   let name = Temp.mk_label (Some "f") in
-  let args = [~$1] in
-  let stmts =
-    [ Call (~:name, args)
-    ] in
+  let stmts = [Call (~:name, [~$1])] in
   let result = reorder stmts in
   print_string ([%show: stmt * expr list] result);
   [%expect {|
     ((Move ((Temp (17, None)),
         (Call ((Name { id = 5; name = "f" }), [(Const 1)])))),
      [(Temp (17, None))]) |}]
-
-(* let%expect_test "reorder" =
- *   let stmts =
- *     [
- *     ] in
- *   let result = reorder stmts in
- *   [%expect {| |}] *)
 
 (* Flattens the given [stmt] by removing
    [Seq]'s and placing result into [acc] *)
