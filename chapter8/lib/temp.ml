@@ -14,10 +14,10 @@ module S = Symbol
    integer (identifier) and an optional name,
    which is used for registers (and is helpful for tracing) *)
 type t = int * string option
-[@@deriving show { with_path = false }]
+[@@deriving compare, equal, show { with_path = false }]
 
 type label = Symbol.t
-[@@deriving show { with_path = false }]
+[@@deriving compare, equal, show { with_path = false }]
 
 let mk_internal =
   let idx = ref (-1) in

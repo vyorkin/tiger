@@ -1,3 +1,6 @@
+(* see https://github.com/janestreet/base/blob/master/src/ppx_compare_lib.ml#L26 *)
+open Ppx_compare_lib.Builtin
+
 module Sy = Syntax
 
 (** Represents a computation of some value (possibly with side effects) *)
@@ -24,7 +27,7 @@ type expr =
   (** The statement [stmt] is evaluated for side effects,
       then [expr] is evaluated for a result *)
   | ESeq of stmt * expr
-[@@deriving show { with_path = false }]
+[@@deriving compare, equal, show { with_path = false }]
 
 (** Statements of the IR language perform side effects and control flow *)
 and stmt =
@@ -53,7 +56,7 @@ and stmt =
       This is like a label definition in assembly language. The value
       [Label n] may be the target of jumps, calls, etc *)
   | Label of Temp.label
-[@@deriving show { with_path = false }]
+[@@deriving compare, equal, show { with_path = false }]
 
 (* a > b | c < d *)
 (* ---------------------------------------------------------- *)
@@ -68,7 +71,7 @@ and cjump = {
   right : expr;
   t : Temp.label;
   f : Temp.label;
-} [@@deriving show { with_path = false }]
+} [@@deriving compare, equal, show { with_path = false }]
 
 (** The integer arithmetic operators are [Plus], [Minus], [Mul] and [Div].
     Integer bitwise logical operators are [And], [Or] and [Xor].
@@ -78,7 +81,7 @@ and binop =
   | Plus | Minus | Mul | Div
   | And | Or | Xor
   | LShift | RShift | ARShift
-[@@deriving show { with_path = false }]
+[@@deriving compare, equal, show { with_path = false }]
 
 (** The relational operators are [Eq] and [Ne] for
     integer equality and nonequality (signed or unsigned).
@@ -88,7 +91,7 @@ and relop =
   | Eq | Ne
   | Lt | Gt | Le | Ge
   | Ult | Ule | Ugt | Uge
-[@@deriving show { with_path = false }]
+[@@deriving compare, equal, show { with_path = false }]
 
 (** Makes a [binop] out of a [Syntax.op] *)
 let binop_of_op = function

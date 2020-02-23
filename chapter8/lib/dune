@@ -7,7 +7,8 @@
 
 (library
  (name ch8)
+ (inline_tests)
  (libraries core textutils.ascii_table logs fmt logs.fmt)
- (preprocess (pps ppx_deriving.show ppx_deriving.eq ppx_compare ppx_deriving.make ppx_sexp_conv)))
+ (preprocess (pps ppx_deriving.show ppx_compare ppx_deriving.make ppx_sexp_conv ppx_inline_test ppx_expect)))
 
 (env (dev (flags (:standard -warn-error -A))))

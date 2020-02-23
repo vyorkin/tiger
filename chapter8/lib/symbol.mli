@@ -2,7 +2,7 @@
 type t = {
   id : int;
   name : string;
-} [@@deriving compare, eq, sexp, show]
+} [@@deriving compare, equal, sexp, show]
 
 (** Make a new symbol *)
 val mk : string -> t

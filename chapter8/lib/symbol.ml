@@ -5,7 +5,7 @@ module L = Location
 type t = {
   id : int;
   name : string;
-} [@@deriving compare, eq, sexp, show { with_path = false }]
+} [@@deriving compare, equal, sexp, show { with_path = false }]
 
 let (=) x y = equal x y
 let (<>) x y = not (equal x y)

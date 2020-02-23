@@ -1,6 +1,6 @@
 (** Used for equality testing to
     distinguish between different record types *)
-type t [@@deriving eq, show]
+type t [@@deriving compare, equal, show]
 
 val mk : unit -> t
 

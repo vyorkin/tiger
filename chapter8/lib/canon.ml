@@ -110,7 +110,7 @@ let (++) s1 s2 = join s1 s2
    [e1; e2; ESeq(s, e3)]
 
    [s] must be pulled leftward past [e2] and [e1]
-   ([~~] is an operator for [commute])
+   ([<-->] is an operator for [commute])
 
    (0) If they all commute our [reorder] function will return
        [stmt, exprs] where:
@@ -118,7 +118,7 @@ let (++) s1 s2 = join s1 s2
        stmt  := s
        exprs := [e1; e2; e3]
 
-   (1) If [s ~~ e1] and [not (s ~~ e2)]
+   (1) If [s <--> e1] and [not (s <--> e2)]
 
           s e1 == e1 s
           s e2 <> e2 s
@@ -126,7 +126,7 @@ let (++) s1 s2 = join s1 s2
        stmt  := Seq(Move(t1, e1), Seq(Move(t2, e2), s))
        exprs := [Temp t1; Temp t2; e3]
 
-   (2) If [not (s ~~ e1)] and [s ~~ e2]
+   (2) If [not (s <--> e1)] and [s <--> e2]
 
           s e1 <> e1 s
           s e2 == e2 s
@@ -146,8 +146,8 @@ let (++) s1 s2 = join s1 s2
    The idea is to assign each return value immediately
    into a fresh temporary register *)
 
-(* Split a given [expr list] by pulling-out side-effectful
-   statements out of it and extracting a new cleaned-up expressions
+(* Splits a given [expr list] by pulling-out side-effectful
+   statements and extracting a new cleaned-up expressions
 
   [expr list -> (stmt * expr list)] *)
 let rec reorder = function
@@ -164,7 +164,7 @@ let rec reorder = function
   | e :: es ->
      (* Split the "head" expression [e] by pulling-out a statement [s1]
         containing all the side-effects and extracting a new cleaned-up expression [e1] *)
-     let (s1, e1) = do_expr e in
+     let (s1, e1) = pull_expr e in
      (* Do the same thing for the rest of the expressions [es] recursively *)
      let (s2, es') = reorder es in
      (* If (all the side-effectful statements in) [s2] and our cleaned-up "head" expression
@@ -200,9 +200,9 @@ and reorder_expr exprs build =
   let (s, l) = reorder exprs in
   (s, build l)
 
-and do_stmt = function
+and pull_stmt = function
   | Seq (s1, s2) ->
-     do_stmt s1 ++ do_stmt s2
+     pull_stmt s1 ++ pull_stmt s2
   | Jump (e, l) ->
      reorder_stmt [e] (fun es -> L.hd_exn es <|~ l)
   | CJump { op; left; right; t; f } ->
@@ -217,7 +217,7 @@ and do_stmt = function
      reorder_stmt [addr; e]
        (fun es -> ~@(L.hd_exn es) <<< (L.(hd_exn (tl_exn es))))
   | Move (ESeq (s, e1), e2) ->
-     do_stmt (Seq (s, e1 <<< e2))
+     pull_stmt (Seq (s, e1 <<< e2))
   | Expr (Call (name, args)) ->
      reorder_stmt (name :: args)
        (fun es -> Expr (Call (L.hd_exn es, L.tl_exn es)))
@@ -226,7 +226,7 @@ and do_stmt = function
   | e ->
      reorder_stmt [] (fun _ -> e)
 
-and do_expr = function
+and pull_expr = function
   | BinOp (l, op, r) ->
      reorder_expr [l; r]
        (fun es -> BinOp (L.hd_exn es, op, L.(hd_exn (tl_exn es))))
@@ -234,10 +234,10 @@ and do_expr = function
      reorder_expr [addr] (fun es -> ~@(L.hd_exn es))
   | ESeq (s, e) ->
      (* Pull-out side-effectful statements out of [s] *)
-     let s1 = do_stmt s in
+     let s1 = pull_stmt s in
      (* Split the expression [e] by pulling-out side-effectful
-        statements [s2] out of it and extracting a new cleaned-up expression [e'] *)
-     let (s2, e') = do_expr e in
+        statements [s2] and extracting a new cleaned-up expression [e'] *)
+     let (s2, e') = pull_expr e in
      (* Join side-effects, return [e'] expression *)
      (s1 ++ s2, e')
   | Call (name, args) ->
@@ -246,16 +246,54 @@ and do_expr = function
   | e ->
      reorder_expr [] (fun _ -> e)
 
+let%expect_test "reorder empty" =
+  let result = reorder [] in
+  print_string ([%show: stmt * expr list] result);
+  [%expect {| ((Expr (Const 0)), []) |}]
+
+let%expect_test "reorder call" =
+  let name = Temp.mk_label (Some "f") in
+  let args = [~$1] in
+  let stmts =
+    [ Call (~:name, args)
+    ] in
+  let result = reorder stmts in
+  print_string ([%show: stmt * expr list] result);
+  [%expect {|
+    ((Move ((Temp (17, None)),
+        (Call ((Name { id = 5; name = "f" }), [(Const 1)])))),
+     [(Temp (17, None))]) |}]
+
+(* let%expect_test "reorder" =
+ *   let stmts =
+ *     [
+ *     ] in
+ *   let result = reorder stmts in
+ *   [%expect {| |}] *)
+
+(* Flattens the given [stmt] by removing
+   [Seq]'s and placing result into [acc] *)
+let rec linear stmt acc =
+  match stmt with
+  | Seq (s1, s2) -> linear s1 (linear s2 acc)
+  | s -> s :: acc
+
+let%expect_test "linear" =
+  let l = Temp.mk_label (Some "a") in
+  let t = Temp.mk () in
+  let stmts = [~:l <|~ [l]; ~|l; ~*t <<< ~$1] in
+  let actual = linear (seq stmts) [] in
+  print_string ([%show: stmt list] actual);
+  [%expect {|
+     [(Jump ((Name { id = 6; name = "a" }), [{ id = 6; name = "a" }]));
+       (Label { id = 6; name = "a" }); (Move ((Temp (18, None)), (Const 1)))] |} ]
+
 (* From an arbitrary [stmt] statement, produce an [stmt list] of
    cleaned statements satisfying the following properties:
    - No [Seq]'s or [ESeq]'s
-   - The parent of every [Call] is an [Exp] or a [Move (Temp t, ...)] *)
+   - The parent of every [Call] is an [Expr] or a [Move (Temp t, ...)] *)
 let linearize stmt =
-  let rec linear = function
-    | Seq (s1, s2), ss -> linear (s1, linear (s2, ss))
-    | s, ss -> s :: ss in
-  let no_eseq = do_stmt stmt in
-  linear (no_eseq, [])
+  linear (pull_stmt stmt) []
 
 let rec mk_blocks stmts acc ~done_label =
   match stmts with

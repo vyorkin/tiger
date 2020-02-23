@@ -11,7 +11,7 @@ type t =
   | Name of S.t * t option ref
 [@@deriving show]
 
-(* we cannot use [@@deriving eq] here, so
+(* we cannot use [@@deriving compare, equal] here, so
    let's just implement the comparsion ourselves *)
 
 let compare x y =

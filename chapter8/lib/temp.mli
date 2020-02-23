@@ -1,10 +1,10 @@
 (** Abstract name for a local variable (or a formal parameter)
     that is temporarily held in a register *)
-type t [@@deriving show]
+type t [@@deriving compare, equal, show]
 
 (** Abstract name for a static memory address
     that is yet to be determined *)
-type label = Symbol.t [@@deriving show]
+type label = Symbol.t [@@deriving compare, equal, show]
 
 (** Returns a new temporary from
     an infinite set of temporaries *)

@@ -8,12 +8,12 @@ module Tr = Translate
 type target =
   | Stdout
   | File of string
-[@@deriving eq, show]
+[@@deriving compare, equal, show]
 
 type source =
   | Symbol of target list
   | Semant of target list
-[@@deriving eq, show]
+[@@deriving compare, equal, show]
 
 (* Note that in the [logs] lib terminology "source" defines a
    named unit of logging whose reporting level can be set independently *)
